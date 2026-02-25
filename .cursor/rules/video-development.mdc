@@ -1,0 +1,36 @@
+---
+description: 开发视频场景和组件时的规范
+globs: packages/video/src/**/*.tsx,packages/video/src/**/*.ts
+alwaysApply: false
+---
+
+# 视频开发规范
+
+## 场景组件
+
+- 场景组件放在 `src/scenes/`，命名格式 `XxxScene.tsx`
+- 每个场景接收统一的 props 接口，包含 `narration`、`visual_elements`
+- 使用 `SceneWrapper` 包裹场景内容，确保统一的背景和内边距
+- 场景在 `PaperVideo.tsx` 中通过 scene type 路由
+
+## 通用组件
+
+- 通用组件放在 `src/components/`
+- 组件必须支持 `useScale` hook 实现多尺寸适配
+- 动画使用 Remotion 的 `interpolate` 和 `spring`
+
+## 类型安全
+
+- VideoScript 的 Zod schema 定义在 `types/script.ts`
+- 修改脚本结构时，必须同步更新 Python 端的 Pydantic 模型（`packages/agent/theia/schemas.py`）
+- 新增场景类型需要在两端都注册
+
+## 数学公式
+
+- LaTeX 公式通过 KaTeX 渲染
+- 使用 `FormulaBlock` 组件，不要直接调用 KaTeX API
+
+## 多尺寸
+
+- 所有尺寸值通过 `useScale` 缩放
+- 不要硬编码像素值，使用相对于设计稿（1920x1080）的比例

@@ -1,0 +1,30 @@
+[project]
+name = "theia"
+version = "0.1.0"
+description = "Paper PDF to explainer video agent"
+requires-python = ">=3.10"
+dependencies = [
+    "magic-pdf[full]",
+    "litellm",
+    "edge-tts",
+    "pydantic>=2.0",
+    "click",
+    "mutagen",
+    "langgraph",
+    "requests",
+    "python-dotenv",
+    "beautifulsoup4",
+    "markdownify",
+    "pyexecjs",
+    "parsel",
+]
+
+[project.scripts]
+theia = "theia.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["theia*"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"

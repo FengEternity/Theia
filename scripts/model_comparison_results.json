@@ -1,0 +1,478 @@
+[
+  {
+    "model": "DeepSeek-V3.2",
+    "reasoning": false,
+    "provider": "SiliconFlow",
+    "status": "OK",
+    "title": "MAI-UI Technical Report: Real-World Centric Foundation GUI Agents",
+    "l1": {
+      "schema_compliance": 0.5,
+      "field_completeness": 1.0,
+      "numeric_verifiability": 0.429,
+      "l1_total": 1.929
+    },
+    "l2": {
+      "grounding": 0.231,
+      "entity_match": 0.682,
+      "section_coverage": 0.25,
+      "diversity": 0.5,
+      "l2_total": 1.663
+    },
+    "fast_total": 3.592,
+    "p1_time": 46.1,
+    "p2_time": 174.6,
+    "total_time": 220.8,
+    "prompt_tokens": 15480,
+    "completion_tokens": 2691,
+    "cost_rmb": 0.039,
+    "key_steps": 5,
+    "formulas": 2,
+    "datasets": 9,
+    "metrics": 5,
+    "baselines": 7,
+    "contributions": 3,
+    "l3": {
+      "faithfulness": 0.55,
+      "coverage": 0.75,
+      "insight": 0.85,
+      "video_ready": 0.8,
+      "l3_total": 2.95,
+      "issues": [
+        "作者列表、论文标题和发表年份在原文关键章节中未出现，属于无法从给定原文验证的信息。",
+        "method.key_steps 中提到“增强的GRPO算法”“经验回放”“720p分辨率”“500+并行环境”等细节，原文提供的章节中未明确出现，存在推断或编造风险。",
+        "results.datasets 列表包含 ScreenSpot-V2、Android Control、GUI Odyssey 等数据集，这些名称未在原文给定章节中出现。",
+        "results.baselines 中给出的部分数值（如需用户交互任务 37.5%、需 MCP 工具任务 51.1%、AndroidWorld 33.4% 设备-云协作成功率）在原文摘要与实验章节中未直接出现。",
+        "formulas 中给出的数学公式未在原文关键章节中出现。",
+        "key_insights 中提到“错误摘要带来 +6.9 点成功率提升”，原文未给出该具体数值。"
+      ],
+      "missing": [
+        "摘要中给出的多项核心 SOTA 数值未完整覆盖，例如 ScreenSpot-Pro 73.5%、MMBench GUI L2 91.3%、OSWorld-G 70.9%、UI-Vision 49.2%、AndroidWorld 76.7%。",
+        "MAI-UI 模型规模（2B、8B、32B、235B-A22B）虽有提及，但不同规模在实验中的具体定位与对比未系统总结。",
+        "云端调用减少 40% 和端侧性能提升 33% 的实验设置和对照条件未详细覆盖。",
+        "在线 RL 的“上下文长度扩展”等动机在 coverage 中未明确体现，仅聚焦并行环境和步数。"
+      ],
+      "notes": "insight: 对问题背景的概括与原文高度一致，准确抓住了四大现实部署挑战。方法部分结构清晰，将数据、架构和训练三条主线串联起来，逻辑完整。贡献总结具有抽象提升，能够体现 MAI-UI 相较以往 GUI agent 工作的系统性差异。少数洞察性结论（如具体增益数字）略显过度推断，但整体理解深度较高。; video_ready: 内容结构化程度高，问题—方法—系统架构—实验—结论链条完整，足以支撑 2–3 分钟解说视频。方法步骤和系统架构描述自包含性较强，适合配合示意图讲解。改进建议：减少不确定或可能不忠实的细节数字，突出摘要中的关键 SOTA 指标，并用一张总表或对比图强化视觉呈现。"
+    },
+    "full_total": 6.542
+  },
+  {
+    "model": "DeepSeek-V3",
+    "reasoning": false,
+    "provider": "SiliconFlow",
+    "status": "OK",
+    "title": "MAI-UI Technical Report: Real-World Centric Foundation GUI Agents",
+    "l1": {
+      "schema_compliance": 0.5,
+      "field_completeness": 1.0,
+      "numeric_verifiability": 0.2,
+      "l1_total": 1.7
+    },
+    "l2": {
+      "grounding": 0.462,
+      "entity_match": 1.0,
+      "section_coverage": 0.0,
+      "diversity": 0.5,
+      "l2_total": 1.962
+    },
+    "fast_total": 3.662,
+    "p1_time": 12.4,
+    "p2_time": 95.6,
+    "total_time": 108.0,
+    "prompt_tokens": 15321,
+    "completion_tokens": 1509,
+    "cost_rmb": 0.0427,
+    "key_steps": 5,
+    "formulas": 2,
+    "datasets": 6,
+    "metrics": 5,
+    "baselines": 3,
+    "contributions": 3,
+    "l3": {
+      "faithfulness": 0.48,
+      "coverage": 0.78,
+      "insight": 0.72,
+      "video_ready": 0.81,
+      "l3_total": 2.79,
+      "issues": [
+        "作者列表、论文标题和发表年份在原文中未提供，属于外推或编造信息。",
+        "method 中提到“支持500+环境并行”“GRPO算法”“经验回放”“ask_user 和 mcp_call 动作空间”等细节，原文摘要和给定方法章节中未明确出现或未被证实。",
+        "results 中的“MCP工具调用任务成功率提升+18.7%”“处理87%的意外弹窗”“235B模型工具调用提升51.1%”“2B模型达到73.3%成功率”等具体数值未在原文中出现。",
+        "baselines 中的 Ferret-UI Lite、相关提升值以及 UI-Tars-2=76.7% 的标注方式与原文描述不一致（76.7%是 MAI-UI 的 AndroidWorld 成绩）。",
+        "figures 列表中的图号、图内容描述（如图11、图13）在原文给定内容中未出现，属于臆造。",
+        "formulas 中给出的数学公式未在原文关键章节中出现。"
+      ],
+      "missing": [
+        "对四大挑战中“原生 agent–user 交互”的具体动机与现实场景解释不够充分（如澄清指令、征求同意的必要性）。",
+        "原文强调的“UI-only 操作局限性”和 MCP 工具带来的‘结构化捷径’示例（如 GitHub 操作）未被具体复述。",
+        "在线 RL 的关键实验结论中，原文明确给出的并行环境从 32 到 512 带来 +5.2 点、step budget 从 15 到 50 带来 +4.3 点的表述不够精确。",
+        "对 grounding benchmark 各数据集（ScreenSpot-Pro、OSWorld-G、UI-Vision 等）的单项具体成绩（如 73.5%、70.9%、49.2%）未完整列出。",
+        "本地统一轨迹记忆（Local Unified Trajectory Memory）的作用在方法总结中提及较弱。"
+      ],
+      "notes": "insight: 对问题定义和整体方法路线（数据管道 + 设备-云协作 + 在线RL）的理解是到位的，能够抓住论文试图解决‘真实部署’这一主线。但在细节层面混入了较多推断性或扩展性表述，削弱了作为“信息提取”的严谨性。contributions 的概括有价值，但“首个”“500+环境”等表述偏夸张，影响学术客观性。; video_ready: 结构清晰，问题—方法—结果—贡献的叙事完整，数据集和关键性能指标足以支撑 2–3 分钟的视频解说。改进建议：减少未经证实的具体数值和算法名，增加一张明确的系统架构流程说明（本地代理→监控→云代理→轨迹记忆），并用原文已给出的 benchmark 数字替换推断性提升比例，以增强可信度。"
+    },
+    "full_total": 6.452
+  },
+  {
+    "model": "GLM-4.7",
+    "reasoning": false,
+    "provider": "SiliconFlow",
+    "status": "OK",
+    "title": "MAI-UI Technical Report: Real-World Centric Foundation GUI Agents",
+    "l1": {
+      "schema_compliance": 0.5,
+      "field_completeness": 0.95,
+      "numeric_verifiability": 0.308,
+      "l1_total": 1.758
+    },
+    "l2": {
+      "grounding": 0.692,
+      "entity_match": 1.0,
+      "section_coverage": 0.0,
+      "diversity": 0.5,
+      "l2_total": 2.192
+    },
+    "fast_total": 3.95,
+    "p1_time": 6.9,
+    "p2_time": 24.1,
+    "total_time": 31.0,
+    "prompt_tokens": 15505,
+    "completion_tokens": 2261,
+    "cost_rmb": 0.0982,
+    "key_steps": 4,
+    "formulas": 2,
+    "datasets": 6,
+    "metrics": 5,
+    "baselines": 6,
+    "contributions": 4,
+    "l3": {
+      "faithfulness": 0.55,
+      "coverage": 0.82,
+      "insight": 0.78,
+      "video_ready": 0.74,
+      "l3_total": 2.89,
+      "issues": [
+        "作者列表在原文关键章节中完全未出现，属于外部或臆测信息。",
+        "标题“MAI-UI Technical Report: Real-World Centric Foundation GUI Agents”未在原文中出现，原文仅给出MAI-UI作为方法名称。",
+        "端云协作性能提升被具体化为“33.4%”“42.7%”，而原文仅表述为“improves on-device performance by 33%”“reduces cloud model calls by over 40%”，存在精度臆造。",
+        "results.baselines 中将 UI-Tars-2、Gemini-2.5-Pro、Seed1.8 的 AndroidWorld 成功率都标为 76.7%，原文并未给出这些基线的具体数值，只说明 MAI-UI 超越它们。",
+        "关于“720p 分辨率比 1080p 提升约 50.1% 训练速度”的表述在给定原文中未出现。",
+        "MobileWorld 中“MCP工具调用和用户交互成功率分别达到51.1%和37.5%”在原文关键章节中未给出。",
+        "method 中给出的数学公式在原文关键章节未出现，来源不明。"
+      ],
+      "missing": [
+        "Abstract 中关于 GUI grounding 各基准（MMBench GUI L2 91.3%、OSWorld-G 70.9%、UI-Vision 49.2%）的完整数值未在 results.metrics 中系统呈现。",
+        "模型家族中 8B、32B 等不同尺寸的相对表现与定位未展开。",
+        "实验设置中四阶段训练流程（SFT→SFT→RL→在线RL）虽有提及，但未明确区分各阶段的目标与对应数据类型。",
+        "关于 grounding analysis（Sec. 3.6）的分析性结论未覆盖。"
+      ],
+      "notes": "insight: 对问题定义和三大核心组件（自进化数据管道、端云协作、在线RL）的理解较为到位，能够准确概括 MAI-UI 针对真实部署的设计动机。方法步骤组织清晰，contributions 总结基本反映论文价值。但部分洞察混入了未经原文支持的细节，削弱了整体严谨性。; video_ready: 整体结构完整，问题—方法—实验—结论清晰，已包含关键 benchmark 数字和系统架构描述，基本可支撑 2–3 分钟解说视频。改进建议：删除或修正未在原文出现的具体数值与作者信息；用更直观的对比（如‘为何端云协作优于纯端/纯云’）和精选 2–3 个最核心实验指标，以提升视频叙事的可信度与聚焦度。"
+    },
+    "full_total": 6.84
+  },
+  {
+    "model": "MiniMax-M2.5",
+    "reasoning": false,
+    "status": "FAIL@P2"
+  },
+  {
+    "model": "Kimi-K2.5",
+    "reasoning": false,
+    "status": "FAIL@P1"
+  },
+  {
+    "model": "Qwen3-235B-Instruct",
+    "reasoning": false,
+    "provider": "SiliconFlow",
+    "status": "OK",
+    "title": "MAI-UI Technical Report: Real-World Centric Foundation GUI Agents",
+    "l1": {
+      "schema_compliance": 0.5,
+      "field_completeness": 0.9,
+      "numeric_verifiability": 0.296,
+      "l1_total": 1.696
+    },
+    "l2": {
+      "grounding": 0.875,
+      "entity_match": 0.941,
+      "section_coverage": 0.25,
+      "diversity": 0.5,
+      "l2_total": 2.566
+    },
+    "fast_total": 4.262,
+    "p1_time": 31.1,
+    "p2_time": 123.8,
+    "total_time": 154.9,
+    "prompt_tokens": 16212,
+    "completion_tokens": 2407,
+    "cost_rmb": 0.0203,
+    "key_steps": 4,
+    "formulas": 0,
+    "datasets": 6,
+    "metrics": 5,
+    "baselines": 5,
+    "contributions": 3,
+    "l3": {
+      "faithfulness": 0.75,
+      "coverage": 0.85,
+      "insight": 0.88,
+      "video_ready": 0.82,
+      "l3_total": 3.3,
+      "issues": [
+        "authors、title、year 信息未在给定原文关键章节中出现，属于外推或可能来自论文首页，但在本评估材料中无法验证来源。",
+        "method 中明确提到采用“GRPO算法”，原文提供的章节（Abstract/Introduction/Method 2.4.1/Experiments）中未出现 GRPO 的具体算法名称，属于细化推断。",
+        "results.baselines 中给出了 Ferret-UI Lite 及其数值（75.4）和若干 AndroidWorld 对比模型的具体百分比，这些数值在提供的原文片段中未直接出现。",
+        "findings 中提到“错误摘要带来 +6.9 点成功率提升”，该具体消融数字未在所给原文片段中出现。",
+        "figures 中的 Figure 2、11、12、13 的标题和描述在原文节选中未出现，属于合理猜测但缺乏直接证据。"
+      ],
+      "missing": [
+        "模型训练四阶段（SFT-感知/grounding、SFT-导航、RL-grounding、online RL-导航）的明确阶段划分仅在 experiments setup 中出现，提取中虽隐含但未清晰结构化呈现。",
+        "Qwen3-VL 作为统一 backbone 以及 32B / 235B-A22B 额外真实轨迹增强训练的细节未被突出。",
+        "UI-Vision 表 3 中大量对比模型和细粒度（Basic / Functional / Spatial）结果未被系统性概括，仅保留了总体 SOTA 数字。",
+        "实验章节结构（3.2–3.6 各自关注的分析内容）未被覆盖。"
+      ],
+      "notes": "insight: 对问题定义（四大部署挑战）的概括精准，与 Introduction 高度一致；方法总结能抽象出三大系统级创新，并将其与真实世界部署动机相联系，体现了较好的理解深度。对 device–cloud 协同从“静态选择”到“状态感知路由”的洞察具有论文级概括价值。个别算法与数值细化略显超前，但整体不影响对论文核心思想的把握。; video_ready: 当前内容已足以支撑 2–3 分钟的论文解说视频：问题→方法三组件→SOTA 结果→部署价值逻辑完整，且包含多基准数字和系统收益（33%、40% 等）便于可视化。改进建议：1）减少未经原文验证的具体消融数字；2）用更明确的流程图式语言描述“本地监控→云切换→恢复”的执行闭环；3）补充一句对模型规模谱系（2B–235B）的部署场景对比说明，以增强视频叙事张力。"
+    },
+    "full_total": 7.562
+  },
+  {
+    "model": "Qwen3-32B",
+    "reasoning": false,
+    "provider": "SiliconFlow",
+    "status": "OK",
+    "title": "MAI-UI Technical Report: Real-World Centric Foundation GUI Agents",
+    "l1": {
+      "schema_compliance": 0.5,
+      "field_completeness": 0.95,
+      "numeric_verifiability": 0.231,
+      "l1_total": 1.681
+    },
+    "l2": {
+      "grounding": 0.625,
+      "entity_match": 1.0,
+      "section_coverage": 0.25,
+      "diversity": 0.5,
+      "l2_total": 2.375
+    },
+    "fast_total": 4.056,
+    "p1_time": 10.7,
+    "p2_time": 35.0,
+    "total_time": 45.7,
+    "prompt_tokens": 16242,
+    "completion_tokens": 2122,
+    "cost_rmb": 0.0244,
+    "key_steps": 4,
+    "formulas": 2,
+    "datasets": 6,
+    "metrics": 6,
+    "baselines": 5,
+    "contributions": 2,
+    "l3": {
+      "faithfulness": 0.55,
+      "coverage": 0.8,
+      "insight": 0.75,
+      "video_ready": 0.7,
+      "l3_total": 2.8,
+      "issues": [
+        "title 与 authors、year 信息在给定原文关键章节中未出现，属于外推或编造（原文未提供标题、作者列表或年份）。",
+        "method.key_steps 中提到的“自动代理回滚”“数据课程、重复惩罚和经验回放”“相对坐标机制在720p分辨率下实现性能与速度的平衡”等细节，在所给原文章节中未明确出现。",
+        "formulas 字段中的公式在原文关键章节（Abstract/Introduction/Method/Experiments/Conclusion）中未出现。",
+        "results.metrics 中“设备-云协作系统减少了42.7%的云模型调用”与原文表述“reduces cloud model calls by over 40%”不一致，42.7%为精确数值但原文仅给出区间性描述。",
+        "results.metrics 中“在线强化学习使8B模型在AndroidWorld上的成功率提升了6.0个百分点”在原文中未直接给出（原文给的是并行环境和步数扩展带来的+5.2、+4.3点总体增益）。",
+        "results.findings 中“错误摘要信息的引入使任务成功率提升了6.9个百分点”在原文关键章节中未出现具体数值。",
+        "figures 列表中多张图片路径和说明未在原文关键章节中出现，只有最后一张 Figure 1 与原文一致。"
+      ],
+      "missing": [
+        "Abstract 中明确提到的四个模型规模（2B、8B、32B、235B-A22B）虽在部分地方出现，但未在整体结构性总结中系统强调其“family of sizes”的意义。",
+        "原文对四大挑战的动机性描述（如隐私风险、网络依赖、UI-only 操作的误差放大）在提取中有所简化，细节覆盖不足。",
+        "实验部分对 grounding benchmarks 的完整数值（如 OSWorld-G 70.9%、UI-Vision 49.2%）未全部列出。",
+        "原文中关于在线 RL 扩展并行环境数（32→512）和环境步数（15→50）的具体增益分析未被完整、逐条覆盖。",
+        "设备-云协作系统中“隐私敏感数据不触发云调用”的判定逻辑在提取中提及不够明确。"
+      ],
+      "notes": "insight: 对问题定义和总体方法的理解较为准确，能够抓住 MAI-UI 面向真实部署的四大挑战以及三大核心技术路线（数据、自主交互、设备-云协作、在线 RL）。method 和 contributions 的表述具有一定抽象和总结能力，逻辑较清晰。但部分技术细节出现过度推断或概括（如具体优化技术与数值提升），在严格学术评审视角下削弱了可信度。; video_ready: 提取结果已包含问题背景、方法模块化总结、关键实验指标和定性结论，基本可以支撑 2–3 分钟的论文解说视频。改进建议：1）删除未在原文中出现的公式与过细的数值，避免误导；2）用更清晰的三段式结构（挑战→方法→结果）重组内容；3）明确标注哪些数字来自 Abstract 的 SOTA 结果，哪些是定性结论，以提升视频叙述的可信度与流畅度。"
+    },
+    "full_total": 6.856
+  },
+  {
+    "model": "DeepSeek-R1",
+    "reasoning": true,
+    "provider": "SiliconFlow",
+    "status": "OK",
+    "title": "MAI-UI Technical Report: Real-World Centric Foundation GUI Agents",
+    "l1": {
+      "schema_compliance": 0.5,
+      "field_completeness": 1.0,
+      "numeric_verifiability": 0.188,
+      "l1_total": 1.688
+    },
+    "l2": {
+      "grounding": 0.25,
+      "entity_match": 0.944,
+      "section_coverage": 0.75,
+      "diversity": 0.5,
+      "l2_total": 2.444
+    },
+    "fast_total": 4.131,
+    "p1_time": 158.4,
+    "p2_time": 337.7,
+    "total_time": 496.1,
+    "prompt_tokens": 15423,
+    "completion_tokens": 7763,
+    "cost_rmb": 0.1859,
+    "key_steps": 5,
+    "formulas": 2,
+    "datasets": 8,
+    "metrics": 4,
+    "baselines": 4,
+    "contributions": 3,
+    "l3": {
+      "faithfulness": 0.48,
+      "coverage": 0.78,
+      "insight": 0.72,
+      "video_ready": 0.66,
+      "l3_total": 2.64,
+      "issues": [
+        "authors 列表在原文关键章节中完全未出现，属于无来源编造信息。",
+        "title 在原文中未给出，且与原文表述（MAI-UI, a family of foundation GUI agents）不一致。",
+        "method.summary 中提到的 \"automatic rollout（自动滚动生成）\" 数据来源在给定原文章节中未明确出现。",
+        "method.summary 与 key_steps 中提到的具体系统级优化细节（如 720p 分辨率、异步并行训练）在原文关键章节中未出现。",
+        "formulas 部分完全未在原文中出现，尤其是 SuccessRate_DCC 的乘法公式和 42.7% 的精确计算形式，属于明显编造。",
+        "results.datasets 中的 ScreenSpot-V2、GUI Odyssey 未在原文关键章节中出现。",
+        "results.metrics 中的 \"MCP工具调用成功率: 51.1%\" 和 \"代理-用户交互成功率: 37.5%\" 在原文中没有对应定量结果。",
+        "results.findings 中多处具体增益数值（如 +6.9 点、+6.0 点、图12b、图13-14）未在原文关键章节中出现。",
+        "key_insights 中对具体图号（图12b、图13-14）和精确数值变化的描述未在原文中给出。"
+      ],
+      "missing": [
+        "MAI-UI 模型规模谱系（2B, 8B, 32B, 235B-A22B）虽在 method 和 results 中零散提及，但未作为核心贡献点系统总结。",
+        "GUI grounding 各基准的完整对比结果（如 MMBench GUI L2 91.3%、OSWorld-G 70.9%、UI-Vision 49.2%）未被完整覆盖。",
+        "在线 RL 的两项关键消融结论（并行环境 32→512 +5.2 点、step budget 15→50 +4.3 点）未被准确、原文一致地表达。",
+        "Local Unified Trajectory Memory 这一组件的作用在 method 总结中未被明确突出。",
+        "隐私保护作为 device–cloud collaboration 设计目标之一（preserves user privacy）在结果和贡献中提及不足。"
+      ],
+      "notes": "insight: 对问题背景（四大挑战）的概括较为精准，method 结构化清晰，能够体现 MAI-UI 的整体技术路线。但洞察层面存在“过度推理”问题：将部分定性描述扩展为精确机制归因和定量因果结论，超出了原文证据支持范围，削弱了学术严谨性。若减少编造细节、更多贴合原文表述，整体质量可显著提升。; video_ready: 内容结构完整，已具备支撑 2–3 分钟论文解说视频的基本要素（问题→方法→结果→贡献）。但当前版本存在两个问题：一是部分关键数字和机制不忠实，可能误导观众；二是 grounding 与 navigation 的 SOTA 结果未形成清晰对照表述。建议：明确区分“原文明确给出的结果”和“定性总结”，删除未在原文中出现的精确数值与公式，并用 3–4 个最核心 benchmark 数字作为视频主线。"
+    },
+    "full_total": 6.771
+  },
+  {
+    "model": "Kimi-K2-Thinking",
+    "reasoning": true,
+    "status": "FAIL@P2"
+  },
+  {
+    "model": "QwQ-32B",
+    "reasoning": true,
+    "provider": "SiliconFlow",
+    "status": "OK",
+    "title": "MAI-UI Technical Report: Real-World Centric Foundation GUI Agents",
+    "l1": {
+      "schema_compliance": 0.5,
+      "field_completeness": 0.9,
+      "numeric_verifiability": 0.188,
+      "l1_total": 1.588
+    },
+    "l2": {
+      "grounding": 0.25,
+      "entity_match": 0.667,
+      "section_coverage": 0.0,
+      "diversity": 0.5,
+      "l2_total": 1.417
+    },
+    "fast_total": 3.005,
+    "p1_time": 26.3,
+    "p2_time": 64.3,
+    "total_time": 90.5,
+    "prompt_tokens": 16204,
+    "completion_tokens": 2915,
+    "cost_rmb": 0.0288,
+    "key_steps": 4,
+    "formulas": 0,
+    "datasets": 3,
+    "metrics": 5,
+    "baselines": 3,
+    "contributions": 3,
+    "l3": {
+      "faithfulness": 0.45,
+      "coverage": 0.75,
+      "insight": 0.7,
+      "video_ready": 0.65,
+      "l3_total": 2.55,
+      "issues": [
+        "作者信息不忠实：原文未给出作者名单，提取结果中出现“Hanzhang Zhou, Xu Zhang”，属于编造。",
+        "年份不忠实：原文未明确给出发表年份，提取结果标注为2024，缺乏依据。",
+        "标题不完全一致：原文标题未出现“Technical Report: Real-World Centric”，属于再创作而非忠实抽取。",
+        "方法细节存在夸大/不精确：如“动态环境强化学习框架支持500+环境并行训练”，原文表述为“scaling parallel environments from 32 to 512”，并非稳定‘500+’作为方法设定。",
+        "结果数字不精确或编造：如“设备-云系统提升基线模型33.4%”“云调用减少42.7%”，原文为“improves on-device performance by ~33%”“reduces cloud model calls by over 40%”，提取结果给出具体小数，原文未提供。",
+        "findings 中多项数字缺乏原文依据：如“手机模型性能提升75.4%”“错误摘要机制使成功率提升6.9%”“MCP工具成功率达51.1%”，原文未出现这些量化结论。",
+        "baseline 对比表述不严谨：提取结果中将 Gemini-2.5-Pro、UI-Tars-2 与 MAI-UI 的 AndroidWorld 数值并列为 76.7%，原文仅说明 MAI-UI 超过这些方法，并未给出它们的具体数值。"
+      ],
+      "missing": [
+        "MAI-UI 模型规模谱系（2B、8B、32B、235B-A22B）的完整说明虽提及但未系统展开。",
+        "GUI grounding 基准的全面结果缺失：如 MMBench GUI L2（91.3%）、OSWorld-G（70.9%）、UI-Vision（49.2%）等关键 SOTA 数字未完整覆盖。",
+        "在线 RL 的两个核心消融维度未完整呈现：并行环境扩展（32→512，+5.2）与 step budget（15→50，+4.3）的具体结论未准确列出。",
+        "设备-云协作系统的执行流程（Local Agent、Cloud Agent、Unified Trajectory Memory、Execution loop）未以结构化方式完整复现。",
+        "训练流程四阶段（SFT→SFT→RL→online RL）的明确分阶段描述在 summary 中被弱化。"
+      ],
+      "notes": "insight: 对问题定义和总体方法理解较到位，能够抓住四大部署挑战以及 MAI-UI 的三大核心组件（数据管道、设备-云协作、在线 RL）。method 结构清晰，逻辑顺序基本正确。但存在将实验观察上升为方法特性、以及用未证实的具体数值增强论断的问题，降低了学术严谨性。贡献总结偏概念化，技术边界与创新幅度略显模糊。; video_ready: 整体信息足以支撑 2–3 分钟的论文解说视频，问题背景、方法框架和核心结果都有覆盖，适合做概览型介绍。但需改进：1）删除或修正编造的具体数值；2）补充清晰的系统架构流程（本地/云代理切换逻辑）；3）加入更完整、准确的 benchmark 成绩对比，才能支撑可视化讲解并避免误导观众。"
+    },
+    "full_total": 5.555
+  },
+  {
+    "model": "Qwen3-235B-Thinking",
+    "reasoning": true,
+    "status": "FAIL@P1"
+  },
+  {
+    "model": "GPT-5.2-chat (Azure)",
+    "reasoning": false,
+    "provider": "Azure",
+    "status": "OK",
+    "title": "MAI-UI: Real-World Centric Foundation GUI Agents",
+    "l1": {
+      "schema_compliance": 0.5,
+      "field_completeness": 1.0,
+      "numeric_verifiability": 0.3,
+      "l1_total": 1.8
+    },
+    "l2": {
+      "grounding": 0.75,
+      "entity_match": 0.933,
+      "section_coverage": 0.25,
+      "diversity": 0.489,
+      "l2_total": 2.422
+    },
+    "fast_total": 4.222,
+    "p1_time": 14.7,
+    "p2_time": 25.6,
+    "total_time": 40.3,
+    "prompt_tokens": 15628,
+    "completion_tokens": 2222,
+    "cost_rmb": 0.429,
+    "key_steps": 5,
+    "formulas": 2,
+    "datasets": 6,
+    "metrics": 4,
+    "baselines": 3,
+    "contributions": 3,
+    "l3": {
+      "faithfulness": 0.82,
+      "coverage": 0.9,
+      "insight": 0.88,
+      "video_ready": 0.86,
+      "l3_total": 3.46,
+      "issues": [
+        "authors、title、year 在原文关键章节中未给出，属于外部补充信息，无法从提供原文验证其真实性。",
+        "method 中对动作空间的形式化描述（如将 GUI grounding 明确表述为“坐标预测问题”、提出完整的 POMDP 四元组公式）在原文摘录中未直接出现，属于合理概括但存在一定推断成分。",
+        "在线 RL 细节中提到“增强版 GRPO”“经验回放”等具体算法设计，原文关键章节仅提及“online RL framework with advanced optimizations”，细节层面略有扩展。",
+        "results 中给出的部分对比基线具体数值（如 UI-Tars-2、Gemini-2.5-Pro 在 AndroidWorld 上的成功率）未在提供的原文节选中明确列出，可能来源于全文但在当前证据范围内不可核验。",
+        "figures 列表中除 Figure 1 外，其余图片及说明未在原文关键章节中出现。"
+      ],
+      "missing": [
+        "原文明确提到的四个现实部署挑战（agent-user interaction、UI-only 限制、部署架构缺失、动态环境脆弱性）可以更逐条对应到方法模块中。",
+        "GUI grounding 各数据集（如 OSWorld-G 70.9%、UI-Vision 49.2%）的具体数值未在 results.metrics 中完整覆盖。",
+        "关于隐私保护的定性描述（如在何种情况下禁止切换到云端）可以进一步明确。",
+        "实验部分对 grounding 分析（Sec. 3.6）的存在未被提及。"
+      ],
+      "notes": "insight: problem 定义准确，清晰指出真实部署场景下的核心瓶颈；method 结构化程度高，能够从系统、数据、训练三条主线解释 MAI-UI 的设计逻辑；contributions 与 key_insights 能提炼出“系统级创新优于单纯扩模”的核心思想。整体理解明显超出表层复述，但在个别技术细节上略有合理推断。; video_ready: 内容已基本具备 2–3 分钟论文解说视频所需的信息：有清晰的问题背景、方法模块化分解、关键实验结果和量化收益。若用于视频，可进一步简化算法术语（如 RL 优化细节），并补充一个端侧→云端切换的具体示例流程，以及用对比柱状图呈现 grounding 与 navigation 的 SOTA 提升。"
+    },
+    "full_total": 7.682
+  }
+]

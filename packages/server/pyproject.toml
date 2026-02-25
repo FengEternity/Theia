@@ -1,0 +1,26 @@
+[project]
+name = "theia-server"
+version = "0.1.0"
+description = "Theia Web API Server"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]>=0.30",
+    "python-multipart",
+    "sse-starlette",
+    "sqlalchemy>=2.0",
+    "httpx",
+    "edge-tts",
+    "theia",
+    "Pillow",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["server*"]
+
+[tool.uv.sources]
+theia = { path = "../agent", editable = true }

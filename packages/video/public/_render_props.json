@@ -1,0 +1,2071 @@
+{
+  "script": {
+    "meta": {
+      "fps": 30,
+      "width": 1080,
+      "height": 1920,
+      "theme": "popsci"
+    },
+    "scenes": [
+      {
+        "type": "title",
+        "durationInFrames": 1070,
+        "narration": "你有没有想过，一个 AI Agent 如果要 24 小时在线、同时陪上千人聊天，还不能串线，它靠的不是更聪明的大脑，而是更强的“后台系统”。2024 年，这篇《深度解析：一张图拆解 OpenClaw 的 Agent 核心设计》，就专门拆开了 OpenClaw 的运行底座。它不是讲模型多强，而是展示了一个 Agent 如何做到长期运行、多会话隔离和稳定并发。最亮眼的是：Agent 本身反而被设计得极简。那它到底解决了什么问题？我们先从整体背景说起。",
+        "audioFile": "audio/scene_0.mp3",
+        "data": {
+          "title": "深度解析：一张图拆解 OpenClaw 的 Agent 核心设计",
+          "authors": [
+            "知乎作者（未署名）"
+          ],
+          "year": 2024,
+          "figures": [
+            "figures/img_006.jpg",
+            "figures/img_005.jpg"
+          ],
+          "figure_captions": [
+            "",
+            ""
+          ]
+        },
+        "wordTimings": [
+          {
+            "text": "你有没有想过",
+            "offsetMs": 0,
+            "durationMs": 975
+          },
+          {
+            "text": "，",
+            "offsetMs": 975,
+            "durationMs": 162
+          },
+          {
+            "text": "一个",
+            "offsetMs": 1137,
+            "durationMs": 325
+          },
+          {
+            "text": "AI",
+            "offsetMs": 1462,
+            "durationMs": 325
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 1787,
+            "durationMs": 813
+          },
+          {
+            "text": "如果要",
+            "offsetMs": 2600,
+            "durationMs": 487
+          },
+          {
+            "text": "24",
+            "offsetMs": 3087,
+            "durationMs": 325
+          },
+          {
+            "text": "小时在线",
+            "offsetMs": 3412,
+            "durationMs": 650
+          },
+          {
+            "text": "、",
+            "offsetMs": 4062,
+            "durationMs": 162
+          },
+          {
+            "text": "同时陪上千人聊天",
+            "offsetMs": 4224,
+            "durationMs": 1301
+          },
+          {
+            "text": "，",
+            "offsetMs": 5525,
+            "durationMs": 162
+          },
+          {
+            "text": "还不能串线",
+            "offsetMs": 5687,
+            "durationMs": 813
+          },
+          {
+            "text": "，",
+            "offsetMs": 6500,
+            "durationMs": 162
+          },
+          {
+            "text": "它靠的不是更聪明的大脑",
+            "offsetMs": 6662,
+            "durationMs": 1788
+          },
+          {
+            "text": "，",
+            "offsetMs": 8450,
+            "durationMs": 162
+          },
+          {
+            "text": "而是更强的",
+            "offsetMs": 8612,
+            "durationMs": 813
+          },
+          {
+            "text": "“",
+            "offsetMs": 9425,
+            "durationMs": 162
+          },
+          {
+            "text": "后台系统",
+            "offsetMs": 9587,
+            "durationMs": 650
+          },
+          {
+            "text": "”",
+            "offsetMs": 10237,
+            "durationMs": 162
+          },
+          {
+            "text": "。",
+            "offsetMs": 10399,
+            "durationMs": 162
+          },
+          {
+            "text": "2024",
+            "offsetMs": 10561,
+            "durationMs": 650
+          },
+          {
+            "text": "年",
+            "offsetMs": 11211,
+            "durationMs": 162
+          },
+          {
+            "text": "，",
+            "offsetMs": 11373,
+            "durationMs": 162
+          },
+          {
+            "text": "这篇",
+            "offsetMs": 11535,
+            "durationMs": 325
+          },
+          {
+            "text": "《",
+            "offsetMs": 11860,
+            "durationMs": 162
+          },
+          {
+            "text": "深度解析",
+            "offsetMs": 12022,
+            "durationMs": 650
+          },
+          {
+            "text": "：",
+            "offsetMs": 12672,
+            "durationMs": 162
+          },
+          {
+            "text": "一张图拆解",
+            "offsetMs": 12834,
+            "durationMs": 813
+          },
+          {
+            "text": "OpenClaw",
+            "offsetMs": 13647,
+            "durationMs": 1301
+          },
+          {
+            "text": "的",
+            "offsetMs": 14948,
+            "durationMs": 162
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 15110,
+            "durationMs": 813
+          },
+          {
+            "text": "核心设计",
+            "offsetMs": 15923,
+            "durationMs": 650
+          },
+          {
+            "text": "》",
+            "offsetMs": 16573,
+            "durationMs": 162
+          },
+          {
+            "text": "，",
+            "offsetMs": 16735,
+            "durationMs": 162
+          },
+          {
+            "text": "就专门拆开了",
+            "offsetMs": 16897,
+            "durationMs": 975
+          },
+          {
+            "text": "OpenClaw",
+            "offsetMs": 17872,
+            "durationMs": 1301
+          },
+          {
+            "text": "的运行底座",
+            "offsetMs": 19173,
+            "durationMs": 813
+          },
+          {
+            "text": "。",
+            "offsetMs": 19986,
+            "durationMs": 162
+          },
+          {
+            "text": "它不是讲模型多强",
+            "offsetMs": 20148,
+            "durationMs": 1301
+          },
+          {
+            "text": "，",
+            "offsetMs": 21449,
+            "durationMs": 162
+          },
+          {
+            "text": "而是展示了一个",
+            "offsetMs": 21611,
+            "durationMs": 1138
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 22749,
+            "durationMs": 813
+          },
+          {
+            "text": "如何做到长期运行",
+            "offsetMs": 23562,
+            "durationMs": 1301
+          },
+          {
+            "text": "、",
+            "offsetMs": 24863,
+            "durationMs": 162
+          },
+          {
+            "text": "多会话隔离和稳定并发",
+            "offsetMs": 25025,
+            "durationMs": 1626
+          },
+          {
+            "text": "。",
+            "offsetMs": 26651,
+            "durationMs": 162
+          },
+          {
+            "text": "最亮眼的是",
+            "offsetMs": 26813,
+            "durationMs": 813
+          },
+          {
+            "text": "：",
+            "offsetMs": 27626,
+            "durationMs": 162
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 27788,
+            "durationMs": 813
+          },
+          {
+            "text": "本身反而被设计得极简",
+            "offsetMs": 28601,
+            "durationMs": 1626
+          },
+          {
+            "text": "。",
+            "offsetMs": 30227,
+            "durationMs": 162
+          },
+          {
+            "text": "那它到底解决了什么问题",
+            "offsetMs": 30389,
+            "durationMs": 1788
+          },
+          {
+            "text": "？",
+            "offsetMs": 32177,
+            "durationMs": 162
+          },
+          {
+            "text": "我们先从整体背景说起",
+            "offsetMs": 32339,
+            "durationMs": 1626
+          },
+          {
+            "text": "。",
+            "offsetMs": 33965,
+            "durationMs": 162
+          }
+        ]
+      },
+      {
+        "type": "overview",
+        "durationInFrames": 1180,
+        "narration": "在很多 Agent 框架里，聊天、记忆、工具、并发全塞进一个循环，结果就是：人一多就乱，时间一长就崩。OpenClaw 关心的不是“一次对话怎么更聪明”，而是“一个 Agent 系统怎么像服务器一样稳定运转”。就像开一家 24 小时营业的餐厅，不能让同一位厨师同时做十桌菜。为此，文章提出了一个核心思路：把不属于智能的问题，全部从 Agent 身上拿走。它系统性拆解了 OpenClaw 的架构，并总结出 Gateway、Session Key 和 Agent Loop 各自的职责边界。那这些模块是怎么配合的呢？我们来看它的方法设计。",
+        "audioFile": "audio/scene_1.mp3",
+        "data": {
+          "problem": "本文试图回答一个工程性问题：如何构建一个可以 24×7 运行、支持多会话隔离、并发控制、记忆检索与工具扩展的通用 Agent 运行时系统。相比单一对话式 Agent，OpenClaw 需要解决的是消息接入、会话生命周期、Agent 执行与状态管理之间的系统性协同问题。",
+          "contributions": [
+            "系统性拆解了 OpenClaw 的核心架构与运行流程，填补了官方文档中对 Agent 执行细节解释不足的问题。",
+            "明确提出 Gateway + Session Key + Agent Loop 的职责边界，为通用 Agent 系统设计提供了可复用范式。"
+          ],
+          "figures": [
+            "figures/img_001.jpg",
+            "figures/img_004.jpg"
+          ],
+          "figure_captions": [
+            "",
+            ""
+          ]
+        },
+        "wordTimings": [
+          {
+            "text": "在很多",
+            "offsetMs": 0,
+            "durationMs": 457
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 457,
+            "durationMs": 763
+          },
+          {
+            "text": "框架里",
+            "offsetMs": 1220,
+            "durationMs": 457
+          },
+          {
+            "text": "，",
+            "offsetMs": 1677,
+            "durationMs": 152
+          },
+          {
+            "text": "聊天",
+            "offsetMs": 1829,
+            "durationMs": 305
+          },
+          {
+            "text": "、",
+            "offsetMs": 2134,
+            "durationMs": 152
+          },
+          {
+            "text": "记忆",
+            "offsetMs": 2286,
+            "durationMs": 305
+          },
+          {
+            "text": "、",
+            "offsetMs": 2591,
+            "durationMs": 152
+          },
+          {
+            "text": "工具",
+            "offsetMs": 2743,
+            "durationMs": 305
+          },
+          {
+            "text": "、",
+            "offsetMs": 3048,
+            "durationMs": 152
+          },
+          {
+            "text": "并发全塞进一个循环",
+            "offsetMs": 3200,
+            "durationMs": 1373
+          },
+          {
+            "text": "，",
+            "offsetMs": 4573,
+            "durationMs": 152
+          },
+          {
+            "text": "结果就是",
+            "offsetMs": 4725,
+            "durationMs": 610
+          },
+          {
+            "text": "：",
+            "offsetMs": 5335,
+            "durationMs": 152
+          },
+          {
+            "text": "人一多就乱",
+            "offsetMs": 5487,
+            "durationMs": 763
+          },
+          {
+            "text": "，",
+            "offsetMs": 6250,
+            "durationMs": 152
+          },
+          {
+            "text": "时间一长就崩",
+            "offsetMs": 6402,
+            "durationMs": 915
+          },
+          {
+            "text": "。",
+            "offsetMs": 7317,
+            "durationMs": 152
+          },
+          {
+            "text": "OpenClaw",
+            "offsetMs": 7469,
+            "durationMs": 1220
+          },
+          {
+            "text": "关心的不是",
+            "offsetMs": 8689,
+            "durationMs": 763
+          },
+          {
+            "text": "“",
+            "offsetMs": 9452,
+            "durationMs": 152
+          },
+          {
+            "text": "一次对话怎么更聪明",
+            "offsetMs": 9604,
+            "durationMs": 1373
+          },
+          {
+            "text": "”",
+            "offsetMs": 10977,
+            "durationMs": 152
+          },
+          {
+            "text": "，",
+            "offsetMs": 11129,
+            "durationMs": 152
+          },
+          {
+            "text": "而是",
+            "offsetMs": 11281,
+            "durationMs": 305
+          },
+          {
+            "text": "“",
+            "offsetMs": 11586,
+            "durationMs": 152
+          },
+          {
+            "text": "一个",
+            "offsetMs": 11738,
+            "durationMs": 305
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 12043,
+            "durationMs": 763
+          },
+          {
+            "text": "系统怎么像服务器一样稳定运转",
+            "offsetMs": 12806,
+            "durationMs": 2136
+          },
+          {
+            "text": "”",
+            "offsetMs": 14942,
+            "durationMs": 152
+          },
+          {
+            "text": "。",
+            "offsetMs": 15094,
+            "durationMs": 152
+          },
+          {
+            "text": "就像开一家",
+            "offsetMs": 15246,
+            "durationMs": 763
+          },
+          {
+            "text": "24",
+            "offsetMs": 16009,
+            "durationMs": 305
+          },
+          {
+            "text": "小时营业的餐厅",
+            "offsetMs": 16314,
+            "durationMs": 1068
+          },
+          {
+            "text": "，",
+            "offsetMs": 17382,
+            "durationMs": 152
+          },
+          {
+            "text": "不能让同一位厨师同时做十桌菜",
+            "offsetMs": 17534,
+            "durationMs": 2136
+          },
+          {
+            "text": "。",
+            "offsetMs": 19670,
+            "durationMs": 152
+          },
+          {
+            "text": "为此",
+            "offsetMs": 19822,
+            "durationMs": 305
+          },
+          {
+            "text": "，",
+            "offsetMs": 20127,
+            "durationMs": 152
+          },
+          {
+            "text": "文章提出了一个核心思路",
+            "offsetMs": 20279,
+            "durationMs": 1678
+          },
+          {
+            "text": "：",
+            "offsetMs": 21957,
+            "durationMs": 152
+          },
+          {
+            "text": "把不属于智能的问题",
+            "offsetMs": 22109,
+            "durationMs": 1373
+          },
+          {
+            "text": "，",
+            "offsetMs": 23482,
+            "durationMs": 152
+          },
+          {
+            "text": "全部从",
+            "offsetMs": 23634,
+            "durationMs": 457
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 24091,
+            "durationMs": 763
+          },
+          {
+            "text": "身上拿走",
+            "offsetMs": 24854,
+            "durationMs": 610
+          },
+          {
+            "text": "。",
+            "offsetMs": 25464,
+            "durationMs": 152
+          },
+          {
+            "text": "它系统性拆解了",
+            "offsetMs": 25616,
+            "durationMs": 1068
+          },
+          {
+            "text": "OpenClaw",
+            "offsetMs": 26684,
+            "durationMs": 1220
+          },
+          {
+            "text": "的架构",
+            "offsetMs": 27904,
+            "durationMs": 457
+          },
+          {
+            "text": "，",
+            "offsetMs": 28361,
+            "durationMs": 152
+          },
+          {
+            "text": "并总结出",
+            "offsetMs": 28513,
+            "durationMs": 610
+          },
+          {
+            "text": "Gateway",
+            "offsetMs": 29123,
+            "durationMs": 1068
+          },
+          {
+            "text": "、",
+            "offsetMs": 30191,
+            "durationMs": 152
+          },
+          {
+            "text": "Session",
+            "offsetMs": 30343,
+            "durationMs": 1068
+          },
+          {
+            "text": "Key",
+            "offsetMs": 31411,
+            "durationMs": 457
+          },
+          {
+            "text": "和",
+            "offsetMs": 31868,
+            "durationMs": 152
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 32020,
+            "durationMs": 763
+          },
+          {
+            "text": "Loop",
+            "offsetMs": 32783,
+            "durationMs": 610
+          },
+          {
+            "text": "各自的职责边界",
+            "offsetMs": 33393,
+            "durationMs": 1068
+          },
+          {
+            "text": "。",
+            "offsetMs": 34461,
+            "durationMs": 152
+          },
+          {
+            "text": "那这些模块是怎么配合的呢",
+            "offsetMs": 34613,
+            "durationMs": 1831
+          },
+          {
+            "text": "？",
+            "offsetMs": 36444,
+            "durationMs": 152
+          },
+          {
+            "text": "我们来看它的方法设计",
+            "offsetMs": 36596,
+            "durationMs": 1526
+          },
+          {
+            "text": "。",
+            "offsetMs": 38122,
+            "durationMs": 152
+          }
+        ]
+      },
+      {
+        "type": "method",
+        "durationInFrames": 1154,
+        "narration": "一句话总结，OpenClaw 的直觉是：让 Agent 只负责“想”，其他都交给系统。首先，所有外部消息统一进入 Gateway，它常驻运行，专门处理连接、并发和调度。接着，每条消息都会绑定一个 Session Key，用它来隔离不同用户和对话，就像给每桌客人贴上桌号。然后，消息被排进队列，避免同一个会话被同时执行。真正的 Agent Loop 只在拿到自己 Session 的上下文后，做三件事：取记忆、做决策、调工具。最后结果再被送回 Gateway。这个流程在图里会更直观，我们直接看图。",
+        "audioFile": "audio/scene_2.mp3",
+        "data": {
+          "summary": "OpenClaw 通过 Gateway + Session Key + Agent Loop 的分层架构，将消息接入与会话管理从 Agent 推理逻辑中彻底解耦。",
+          "steps": [
+            "Gateway 统一接入外部消息并解析",
+            "生成或查找 Session Key 作为会话隔离标识",
+            "通过队列与并发策略调度任务",
+            "Agent Loop 在绑定 Session 的上下文中执行决策与工具调用",
+            "结果与记忆写回并返回用户"
+          ]
+        },
+        "wordTimings": [
+          {
+            "text": "一句话总结",
+            "offsetMs": 0,
+            "durationMs": 793
+          },
+          {
+            "text": "，",
+            "offsetMs": 793,
+            "durationMs": 158
+          },
+          {
+            "text": "OpenClaw",
+            "offsetMs": 951,
+            "durationMs": 1269
+          },
+          {
+            "text": "的直觉是",
+            "offsetMs": 2220,
+            "durationMs": 634
+          },
+          {
+            "text": "：",
+            "offsetMs": 2854,
+            "durationMs": 158
+          },
+          {
+            "text": "让",
+            "offsetMs": 3012,
+            "durationMs": 158
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 3170,
+            "durationMs": 793
+          },
+          {
+            "text": "只负责",
+            "offsetMs": 3963,
+            "durationMs": 475
+          },
+          {
+            "text": "“",
+            "offsetMs": 4438,
+            "durationMs": 158
+          },
+          {
+            "text": "想",
+            "offsetMs": 4596,
+            "durationMs": 158
+          },
+          {
+            "text": "”",
+            "offsetMs": 4754,
+            "durationMs": 158
+          },
+          {
+            "text": "，",
+            "offsetMs": 4912,
+            "durationMs": 158
+          },
+          {
+            "text": "其他都交给系统",
+            "offsetMs": 5070,
+            "durationMs": 1110
+          },
+          {
+            "text": "。",
+            "offsetMs": 6180,
+            "durationMs": 158
+          },
+          {
+            "text": "首先",
+            "offsetMs": 6338,
+            "durationMs": 317
+          },
+          {
+            "text": "，",
+            "offsetMs": 6655,
+            "durationMs": 158
+          },
+          {
+            "text": "所有外部消息统一进入",
+            "offsetMs": 6813,
+            "durationMs": 1586
+          },
+          {
+            "text": "Gateway",
+            "offsetMs": 8399,
+            "durationMs": 1110
+          },
+          {
+            "text": "，",
+            "offsetMs": 9509,
+            "durationMs": 158
+          },
+          {
+            "text": "它常驻运行",
+            "offsetMs": 9667,
+            "durationMs": 793
+          },
+          {
+            "text": "，",
+            "offsetMs": 10460,
+            "durationMs": 158
+          },
+          {
+            "text": "专门处理连接",
+            "offsetMs": 10618,
+            "durationMs": 951
+          },
+          {
+            "text": "、",
+            "offsetMs": 11569,
+            "durationMs": 158
+          },
+          {
+            "text": "并发和调度",
+            "offsetMs": 11727,
+            "durationMs": 793
+          },
+          {
+            "text": "。",
+            "offsetMs": 12520,
+            "durationMs": 158
+          },
+          {
+            "text": "接着",
+            "offsetMs": 12678,
+            "durationMs": 317
+          },
+          {
+            "text": "，",
+            "offsetMs": 12995,
+            "durationMs": 158
+          },
+          {
+            "text": "每条消息都会绑定一个",
+            "offsetMs": 13153,
+            "durationMs": 1586
+          },
+          {
+            "text": "Session",
+            "offsetMs": 14739,
+            "durationMs": 1110
+          },
+          {
+            "text": "Key",
+            "offsetMs": 15849,
+            "durationMs": 475
+          },
+          {
+            "text": "，",
+            "offsetMs": 16324,
+            "durationMs": 158
+          },
+          {
+            "text": "用它来隔离不同用户和对话",
+            "offsetMs": 16482,
+            "durationMs": 1903
+          },
+          {
+            "text": "，",
+            "offsetMs": 18385,
+            "durationMs": 158
+          },
+          {
+            "text": "就像给每桌客人贴上桌号",
+            "offsetMs": 18543,
+            "durationMs": 1745
+          },
+          {
+            "text": "。",
+            "offsetMs": 20288,
+            "durationMs": 158
+          },
+          {
+            "text": "然后",
+            "offsetMs": 20446,
+            "durationMs": 317
+          },
+          {
+            "text": "，",
+            "offsetMs": 20763,
+            "durationMs": 158
+          },
+          {
+            "text": "消息被排进队列",
+            "offsetMs": 20921,
+            "durationMs": 1110
+          },
+          {
+            "text": "，",
+            "offsetMs": 22031,
+            "durationMs": 158
+          },
+          {
+            "text": "避免同一个会话被同时执行",
+            "offsetMs": 22189,
+            "durationMs": 1903
+          },
+          {
+            "text": "。",
+            "offsetMs": 24092,
+            "durationMs": 158
+          },
+          {
+            "text": "真正的",
+            "offsetMs": 24250,
+            "durationMs": 475
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 24725,
+            "durationMs": 793
+          },
+          {
+            "text": "Loop",
+            "offsetMs": 25518,
+            "durationMs": 634
+          },
+          {
+            "text": "只在拿到自己",
+            "offsetMs": 26152,
+            "durationMs": 951
+          },
+          {
+            "text": "Session",
+            "offsetMs": 27103,
+            "durationMs": 1110
+          },
+          {
+            "text": "的上下文后",
+            "offsetMs": 28213,
+            "durationMs": 793
+          },
+          {
+            "text": "，",
+            "offsetMs": 29006,
+            "durationMs": 158
+          },
+          {
+            "text": "做三件事",
+            "offsetMs": 29164,
+            "durationMs": 634
+          },
+          {
+            "text": "：",
+            "offsetMs": 29798,
+            "durationMs": 158
+          },
+          {
+            "text": "取记忆",
+            "offsetMs": 29956,
+            "durationMs": 475
+          },
+          {
+            "text": "、",
+            "offsetMs": 30431,
+            "durationMs": 158
+          },
+          {
+            "text": "做决策",
+            "offsetMs": 30589,
+            "durationMs": 475
+          },
+          {
+            "text": "、",
+            "offsetMs": 31064,
+            "durationMs": 158
+          },
+          {
+            "text": "调工具",
+            "offsetMs": 31222,
+            "durationMs": 475
+          },
+          {
+            "text": "。",
+            "offsetMs": 31697,
+            "durationMs": 158
+          },
+          {
+            "text": "最后结果再被送回",
+            "offsetMs": 31855,
+            "durationMs": 1269
+          },
+          {
+            "text": "Gateway",
+            "offsetMs": 33124,
+            "durationMs": 1110
+          },
+          {
+            "text": "。",
+            "offsetMs": 34234,
+            "durationMs": 158
+          },
+          {
+            "text": "这个流程在图里会更直观",
+            "offsetMs": 34392,
+            "durationMs": 1745
+          },
+          {
+            "text": "，",
+            "offsetMs": 36137,
+            "durationMs": 158
+          },
+          {
+            "text": "我们直接看图",
+            "offsetMs": 36295,
+            "durationMs": 951
+          },
+          {
+            "text": "。",
+            "offsetMs": 37246,
+            "durationMs": 158
+          }
+        ]
+      },
+      {
+        "type": "figure",
+        "durationInFrames": 804,
+        "narration": "我们先看这张总体架构图。画面从 Gateway 启动开始，所有来自不同平台的消息先被集中接入。中间可以看到清晰的会话分流和并发控制，同一个 Session 的任务被串行处理。右侧的 Agent Loop 并不是直接面对用户，而是通过 Gateway 间接通信。这张图一眼就能看出，系统层把“复杂和混乱”挡在了 Agent 外面。",
+        "audioFile": "audio/scene_3.mp3",
+        "data": {
+          "figurePath": "figures/img_003.jpg",
+          "caption": "",
+          "description": "图片展示了 OpenClaw 系统的架构流程，从启动 Gateway 服务器开始，经过消息分发、会话管理、并发控制，最终通过 Agent Loop 执行任务。图中详细描述了多会话隔离、并发控制和 Agent 会话的交互过程。"
+        },
+        "wordTimings": [
+          {
+            "text": "我们先看这张总体架构图",
+            "offsetMs": 0,
+            "durationMs": 1746
+          },
+          {
+            "text": "。",
+            "offsetMs": 1746,
+            "durationMs": 158
+          },
+          {
+            "text": "画面从",
+            "offsetMs": 1904,
+            "durationMs": 476
+          },
+          {
+            "text": "Gateway",
+            "offsetMs": 2380,
+            "durationMs": 1111
+          },
+          {
+            "text": "启动开始",
+            "offsetMs": 3491,
+            "durationMs": 634
+          },
+          {
+            "text": "，",
+            "offsetMs": 4125,
+            "durationMs": 158
+          },
+          {
+            "text": "所有来自不同平台的消息先被集中接入",
+            "offsetMs": 4283,
+            "durationMs": 2698
+          },
+          {
+            "text": "。",
+            "offsetMs": 6981,
+            "durationMs": 158
+          },
+          {
+            "text": "中间可以看到清晰的会话分流和并发控制",
+            "offsetMs": 7139,
+            "durationMs": 2857
+          },
+          {
+            "text": "，",
+            "offsetMs": 9996,
+            "durationMs": 158
+          },
+          {
+            "text": "同一个",
+            "offsetMs": 10154,
+            "durationMs": 476
+          },
+          {
+            "text": "Session",
+            "offsetMs": 10630,
+            "durationMs": 1111
+          },
+          {
+            "text": "的任务被串行处理",
+            "offsetMs": 11741,
+            "durationMs": 1269
+          },
+          {
+            "text": "。",
+            "offsetMs": 13010,
+            "durationMs": 158
+          },
+          {
+            "text": "右侧的",
+            "offsetMs": 13168,
+            "durationMs": 476
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 13644,
+            "durationMs": 793
+          },
+          {
+            "text": "Loop",
+            "offsetMs": 14437,
+            "durationMs": 634
+          },
+          {
+            "text": "并不是直接面对用户",
+            "offsetMs": 15071,
+            "durationMs": 1428
+          },
+          {
+            "text": "，",
+            "offsetMs": 16499,
+            "durationMs": 158
+          },
+          {
+            "text": "而是通过",
+            "offsetMs": 16657,
+            "durationMs": 634
+          },
+          {
+            "text": "Gateway",
+            "offsetMs": 17291,
+            "durationMs": 1111
+          },
+          {
+            "text": "间接通信",
+            "offsetMs": 18402,
+            "durationMs": 634
+          },
+          {
+            "text": "。",
+            "offsetMs": 19036,
+            "durationMs": 158
+          },
+          {
+            "text": "这张图一眼就能看出",
+            "offsetMs": 19194,
+            "durationMs": 1428
+          },
+          {
+            "text": "，",
+            "offsetMs": 20622,
+            "durationMs": 158
+          },
+          {
+            "text": "系统层把",
+            "offsetMs": 20780,
+            "durationMs": 634
+          },
+          {
+            "text": "“",
+            "offsetMs": 21414,
+            "durationMs": 158
+          },
+          {
+            "text": "复杂和混乱",
+            "offsetMs": 21572,
+            "durationMs": 793
+          },
+          {
+            "text": "”",
+            "offsetMs": 22365,
+            "durationMs": 158
+          },
+          {
+            "text": "挡在了",
+            "offsetMs": 22523,
+            "durationMs": 476
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 22999,
+            "durationMs": 793
+          },
+          {
+            "text": "外面",
+            "offsetMs": 23792,
+            "durationMs": 317
+          },
+          {
+            "text": "。",
+            "offsetMs": 24109,
+            "durationMs": 158
+          }
+        ]
+      },
+      {
+        "type": "figure",
+        "durationInFrames": 787,
+        "narration": "接下来这张，是 OpenClaw 的 Agent 核心设计全景图。你会看到全局管理、渠道管理、记忆管理都围绕着 Agent Loop 展开，但并没有挤在一起。记忆、工具、技能都以模块形式接入，而不是写死在逻辑里。这种结构强调的是：Agent 是被系统“托管”运行的，而不是一个单打独斗的聊天脚本。",
+        "audioFile": "audio/scene_4.mp3",
+        "data": {
+          "figurePath": "figures/img_009.jpg",
+          "caption": "深度解析：一张图拆解OpenClaw的Agent核心设计",
+          "description": "图片展示了OpenClaw系统的架构设计，包括内存管理、会话同步、混合搜索和SQLite本地文件存储等关键组件。图中详细描述了内存文件的写入机制、会话文件的同步流程以及混合搜索的具体步骤。"
+        },
+        "wordTimings": [
+          {
+            "text": "接下来这张",
+            "offsetMs": 0,
+            "durationMs": 846
+          },
+          {
+            "text": "，",
+            "offsetMs": 846,
+            "durationMs": 169
+          },
+          {
+            "text": "是",
+            "offsetMs": 1015,
+            "durationMs": 169
+          },
+          {
+            "text": "OpenClaw",
+            "offsetMs": 1184,
+            "durationMs": 1354
+          },
+          {
+            "text": "的",
+            "offsetMs": 2538,
+            "durationMs": 169
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 2707,
+            "durationMs": 846
+          },
+          {
+            "text": "核心设计全景图",
+            "offsetMs": 3553,
+            "durationMs": 1185
+          },
+          {
+            "text": "。",
+            "offsetMs": 4738,
+            "durationMs": 169
+          },
+          {
+            "text": "你会看到全局管理",
+            "offsetMs": 4907,
+            "durationMs": 1354
+          },
+          {
+            "text": "、",
+            "offsetMs": 6261,
+            "durationMs": 169
+          },
+          {
+            "text": "渠道管理",
+            "offsetMs": 6430,
+            "durationMs": 677
+          },
+          {
+            "text": "、",
+            "offsetMs": 7107,
+            "durationMs": 169
+          },
+          {
+            "text": "记忆管理都围绕着",
+            "offsetMs": 7276,
+            "durationMs": 1354
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 8630,
+            "durationMs": 846
+          },
+          {
+            "text": "Loop",
+            "offsetMs": 9476,
+            "durationMs": 677
+          },
+          {
+            "text": "展开",
+            "offsetMs": 10153,
+            "durationMs": 338
+          },
+          {
+            "text": "，",
+            "offsetMs": 10491,
+            "durationMs": 169
+          },
+          {
+            "text": "但并没有挤在一起",
+            "offsetMs": 10660,
+            "durationMs": 1354
+          },
+          {
+            "text": "。",
+            "offsetMs": 12014,
+            "durationMs": 169
+          },
+          {
+            "text": "记忆",
+            "offsetMs": 12183,
+            "durationMs": 338
+          },
+          {
+            "text": "、",
+            "offsetMs": 12521,
+            "durationMs": 169
+          },
+          {
+            "text": "工具",
+            "offsetMs": 12690,
+            "durationMs": 338
+          },
+          {
+            "text": "、",
+            "offsetMs": 13028,
+            "durationMs": 169
+          },
+          {
+            "text": "技能都以模块形式接入",
+            "offsetMs": 13197,
+            "durationMs": 1693
+          },
+          {
+            "text": "，",
+            "offsetMs": 14890,
+            "durationMs": 169
+          },
+          {
+            "text": "而不是写死在逻辑里",
+            "offsetMs": 15059,
+            "durationMs": 1524
+          },
+          {
+            "text": "。",
+            "offsetMs": 16583,
+            "durationMs": 169
+          },
+          {
+            "text": "这种结构强调的是",
+            "offsetMs": 16752,
+            "durationMs": 1354
+          },
+          {
+            "text": "：",
+            "offsetMs": 18106,
+            "durationMs": 169
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 18275,
+            "durationMs": 846
+          },
+          {
+            "text": "是被系统",
+            "offsetMs": 19121,
+            "durationMs": 677
+          },
+          {
+            "text": "“",
+            "offsetMs": 19798,
+            "durationMs": 169
+          },
+          {
+            "text": "托管",
+            "offsetMs": 19967,
+            "durationMs": 338
+          },
+          {
+            "text": "”",
+            "offsetMs": 20305,
+            "durationMs": 169
+          },
+          {
+            "text": "运行的",
+            "offsetMs": 20474,
+            "durationMs": 508
+          },
+          {
+            "text": "，",
+            "offsetMs": 20982,
+            "durationMs": 169
+          },
+          {
+            "text": "而不是一个单打独斗的聊天脚本",
+            "offsetMs": 21151,
+            "durationMs": 2371
+          },
+          {
+            "text": "。",
+            "offsetMs": 23522,
+            "durationMs": 169
+          }
+        ]
+      },
+      {
+        "type": "figure",
+        "durationInFrames": 751,
+        "narration": "然后我们把镜头拉近，看存储和记忆这一层。这张图展示了内存管理、会话同步，以及混合搜索和本地 SQLite 存储的配合方式。可以看到，短期上下文和长期记忆并不是随意堆在一起，而是有清晰的写入和同步流程。这保证了 Agent 即使运行很久，记忆也不会乱套。",
+        "audioFile": "audio/scene_5.mp3",
+        "data": {
+          "figurePath": "figures/img_000.jpg",
+          "caption": "深度解析：一张图拆解OpenClaw的Agent核心设计",
+          "description": "图片展示了OpenClaw Agent的核心运行流程，包括全局管理、Telegram管理、Memory管理以及Agent的运行逻辑和工具/技能扩展。图中详细分解了各个模块的功能和交互方式，强调了多会话隔离、并发控制和记忆检索等关键特性。"
+        },
+        "wordTimings": [
+          {
+            "text": "然后我们把镜头拉近",
+            "offsetMs": 0,
+            "durationMs": 1660
+          },
+          {
+            "text": "，",
+            "offsetMs": 1660,
+            "durationMs": 184
+          },
+          {
+            "text": "看存储和记忆这一层",
+            "offsetMs": 1844,
+            "durationMs": 1660
+          },
+          {
+            "text": "。",
+            "offsetMs": 3504,
+            "durationMs": 184
+          },
+          {
+            "text": "这张图展示了内存管理",
+            "offsetMs": 3688,
+            "durationMs": 1845
+          },
+          {
+            "text": "、",
+            "offsetMs": 5533,
+            "durationMs": 184
+          },
+          {
+            "text": "会话同步",
+            "offsetMs": 5717,
+            "durationMs": 738
+          },
+          {
+            "text": "，",
+            "offsetMs": 6455,
+            "durationMs": 184
+          },
+          {
+            "text": "以及混合搜索和本地",
+            "offsetMs": 6639,
+            "durationMs": 1660
+          },
+          {
+            "text": "SQLite",
+            "offsetMs": 8299,
+            "durationMs": 1107
+          },
+          {
+            "text": "存储的配合方式",
+            "offsetMs": 9406,
+            "durationMs": 1291
+          },
+          {
+            "text": "。",
+            "offsetMs": 10697,
+            "durationMs": 184
+          },
+          {
+            "text": "可以看到",
+            "offsetMs": 10881,
+            "durationMs": 738
+          },
+          {
+            "text": "，",
+            "offsetMs": 11619,
+            "durationMs": 184
+          },
+          {
+            "text": "短期上下文和长期记忆并不是随意堆在一起",
+            "offsetMs": 11803,
+            "durationMs": 3505
+          },
+          {
+            "text": "，",
+            "offsetMs": 15308,
+            "durationMs": 184
+          },
+          {
+            "text": "而是有清晰的写入和同步流程",
+            "offsetMs": 15492,
+            "durationMs": 2398
+          },
+          {
+            "text": "。",
+            "offsetMs": 17890,
+            "durationMs": 184
+          },
+          {
+            "text": "这保证了",
+            "offsetMs": 18074,
+            "durationMs": 738
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 18812,
+            "durationMs": 922
+          },
+          {
+            "text": "即使运行很久",
+            "offsetMs": 19734,
+            "durationMs": 1107
+          },
+          {
+            "text": "，",
+            "offsetMs": 20841,
+            "durationMs": 184
+          },
+          {
+            "text": "记忆也不会乱套",
+            "offsetMs": 21025,
+            "durationMs": 1291
+          },
+          {
+            "text": "。",
+            "offsetMs": 22316,
+            "durationMs": 184
+          }
+        ]
+      },
+      {
+        "type": "figure",
+        "durationInFrames": 718,
+        "narration": "最后这张图，从更高层次看 OpenClaw 的整体生态。左边是各种渠道，统一接入到 Gateway，中间是 Agent 运行时，右边是扩展、基础设施和客户端。整个流程像一条流水线，而不是一团毛线。这也解释了为什么 OpenClaw 能方便地扩展新渠道和新能力。",
+        "audioFile": "audio/scene_6.mp3",
+        "data": {
+          "figurePath": "figures/img_002.jpg",
+          "caption": "",
+          "description": "图片展示了OpenClaw系统的架构，包括渠道、网关、代理运行时、扩展、基础设施和客户端等模块，以及它们之间的交互流程。"
+        },
+        "wordTimings": [
+          {
+            "text": "最后这张图",
+            "offsetMs": 0,
+            "durationMs": 871
+          },
+          {
+            "text": "，",
+            "offsetMs": 871,
+            "durationMs": 174
+          },
+          {
+            "text": "从更高层次看",
+            "offsetMs": 1045,
+            "durationMs": 1045
+          },
+          {
+            "text": "OpenClaw",
+            "offsetMs": 2090,
+            "durationMs": 1393
+          },
+          {
+            "text": "的整体生态",
+            "offsetMs": 3483,
+            "durationMs": 871
+          },
+          {
+            "text": "。",
+            "offsetMs": 4354,
+            "durationMs": 174
+          },
+          {
+            "text": "左边是各种渠道",
+            "offsetMs": 4528,
+            "durationMs": 1219
+          },
+          {
+            "text": "，",
+            "offsetMs": 5747,
+            "durationMs": 174
+          },
+          {
+            "text": "统一接入到",
+            "offsetMs": 5921,
+            "durationMs": 871
+          },
+          {
+            "text": "Gateway",
+            "offsetMs": 6792,
+            "durationMs": 1219
+          },
+          {
+            "text": "，",
+            "offsetMs": 8011,
+            "durationMs": 174
+          },
+          {
+            "text": "中间是",
+            "offsetMs": 8185,
+            "durationMs": 522
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 8707,
+            "durationMs": 871
+          },
+          {
+            "text": "运行时",
+            "offsetMs": 9578,
+            "durationMs": 522
+          },
+          {
+            "text": "，",
+            "offsetMs": 10100,
+            "durationMs": 174
+          },
+          {
+            "text": "右边是扩展",
+            "offsetMs": 10274,
+            "durationMs": 871
+          },
+          {
+            "text": "、",
+            "offsetMs": 11145,
+            "durationMs": 174
+          },
+          {
+            "text": "基础设施和客户端",
+            "offsetMs": 11319,
+            "durationMs": 1393
+          },
+          {
+            "text": "。",
+            "offsetMs": 12712,
+            "durationMs": 174
+          },
+          {
+            "text": "整个流程像一条流水线",
+            "offsetMs": 12886,
+            "durationMs": 1742
+          },
+          {
+            "text": "，",
+            "offsetMs": 14628,
+            "durationMs": 174
+          },
+          {
+            "text": "而不是一团毛线",
+            "offsetMs": 14802,
+            "durationMs": 1219
+          },
+          {
+            "text": "。",
+            "offsetMs": 16021,
+            "durationMs": 174
+          },
+          {
+            "text": "这也解释了为什么",
+            "offsetMs": 16195,
+            "durationMs": 1393
+          },
+          {
+            "text": "OpenClaw",
+            "offsetMs": 17588,
+            "durationMs": 1393
+          },
+          {
+            "text": "能方便地扩展新渠道和新能力",
+            "offsetMs": 18981,
+            "durationMs": 2265
+          },
+          {
+            "text": "。",
+            "offsetMs": 21246,
+            "durationMs": 174
+          }
+        ]
+      },
+      {
+        "type": "result",
+        "durationInFrames": 909,
+        "narration": "好，到了揭晓答案的时候了。这篇文章并没有给出跑分或排行榜，但它给出了工程上的结论：OpenClaw 在并发安全、会话隔离和长期运行上是完整闭环的。它不是靠某个技巧撑住，而是每一层都有明确职责。也正因为如此，Agent 逻辑可以保持简单，系统却能稳定扩展。这种“没有数据但很硬”的结果，其实对工程实践非常有说服力。那它真正带来的启发是什么呢？我们最后总结一下。",
+        "audioFile": "audio/scene_7.mp3",
+        "data": {
+          "datasets": [],
+          "metrics": [],
+          "findings": "作者通过源码与流程图分析，展示了 OpenClaw 在并发安全、会话隔离与长期运行方面的工程完整性。"
+        },
+        "wordTimings": [
+          {
+            "text": "好",
+            "offsetMs": 0,
+            "durationMs": 162
+          },
+          {
+            "text": "，",
+            "offsetMs": 162,
+            "durationMs": 162
+          },
+          {
+            "text": "到了揭晓答案的时候了",
+            "offsetMs": 324,
+            "durationMs": 1625
+          },
+          {
+            "text": "。",
+            "offsetMs": 1949,
+            "durationMs": 162
+          },
+          {
+            "text": "这篇文章并没有给出跑分或排行榜",
+            "offsetMs": 2111,
+            "durationMs": 2438
+          },
+          {
+            "text": "，",
+            "offsetMs": 4549,
+            "durationMs": 162
+          },
+          {
+            "text": "但它给出了工程上的结论",
+            "offsetMs": 4711,
+            "durationMs": 1788
+          },
+          {
+            "text": "：",
+            "offsetMs": 6499,
+            "durationMs": 162
+          },
+          {
+            "text": "OpenClaw",
+            "offsetMs": 6661,
+            "durationMs": 1300
+          },
+          {
+            "text": "在并发安全",
+            "offsetMs": 7961,
+            "durationMs": 812
+          },
+          {
+            "text": "、",
+            "offsetMs": 8773,
+            "durationMs": 162
+          },
+          {
+            "text": "会话隔离和长期运行上是完整闭环的",
+            "offsetMs": 8935,
+            "durationMs": 2601
+          },
+          {
+            "text": "。",
+            "offsetMs": 11536,
+            "durationMs": 162
+          },
+          {
+            "text": "它不是靠某个技巧撑住",
+            "offsetMs": 11698,
+            "durationMs": 1625
+          },
+          {
+            "text": "，",
+            "offsetMs": 13323,
+            "durationMs": 162
+          },
+          {
+            "text": "而是每一层都有明确职责",
+            "offsetMs": 13485,
+            "durationMs": 1788
+          },
+          {
+            "text": "。",
+            "offsetMs": 15273,
+            "durationMs": 162
+          },
+          {
+            "text": "也正因为如此",
+            "offsetMs": 15435,
+            "durationMs": 975
+          },
+          {
+            "text": "，",
+            "offsetMs": 16410,
+            "durationMs": 162
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 16572,
+            "durationMs": 812
+          },
+          {
+            "text": "逻辑可以保持简单",
+            "offsetMs": 17384,
+            "durationMs": 1300
+          },
+          {
+            "text": "，",
+            "offsetMs": 18684,
+            "durationMs": 162
+          },
+          {
+            "text": "系统却能稳定扩展",
+            "offsetMs": 18846,
+            "durationMs": 1300
+          },
+          {
+            "text": "。",
+            "offsetMs": 20146,
+            "durationMs": 162
+          },
+          {
+            "text": "这种",
+            "offsetMs": 20308,
+            "durationMs": 325
+          },
+          {
+            "text": "“",
+            "offsetMs": 20633,
+            "durationMs": 162
+          },
+          {
+            "text": "没有数据但很硬",
+            "offsetMs": 20795,
+            "durationMs": 1138
+          },
+          {
+            "text": "”",
+            "offsetMs": 21933,
+            "durationMs": 162
+          },
+          {
+            "text": "的结果",
+            "offsetMs": 22095,
+            "durationMs": 487
+          },
+          {
+            "text": "，",
+            "offsetMs": 22582,
+            "durationMs": 162
+          },
+          {
+            "text": "其实对工程实践非常有说服力",
+            "offsetMs": 22744,
+            "durationMs": 2113
+          },
+          {
+            "text": "。",
+            "offsetMs": 24857,
+            "durationMs": 162
+          },
+          {
+            "text": "那它真正带来的启发是什么呢",
+            "offsetMs": 25019,
+            "durationMs": 2113
+          },
+          {
+            "text": "？",
+            "offsetMs": 27132,
+            "durationMs": 162
+          },
+          {
+            "text": "我们最后总结一下",
+            "offsetMs": 27294,
+            "durationMs": 1300
+          },
+          {
+            "text": "。",
+            "offsetMs": 28594,
+            "durationMs": 162
+          }
+        ]
+      },
+      {
+        "type": "conclusion",
+        "durationInFrames": 842,
+        "narration": "总结一句话：OpenClaw 做的不是更聪明的 Agent，而是更靠谱的 Agent 运行系统。它用 Gateway 扛住复杂性，用 Session Key 划清边界，让 Agent Loop 专心思考。这种以系统设计取胜的思路，为后续通用 Agent 框架提供了范本。未来 Agent 能走多远，很可能不只取决于模型，而取决于你有没有这样一套“不掉链子”的底座。",
+        "audioFile": "audio/scene_8.mp3",
+        "data": {
+          "conclusion": "OpenClaw 的成功来自清晰的职责分层与以 Session 为中心的系统设计，而非单一算法创新。",
+          "contributions": [
+            "系统性拆解 OpenClaw 的核心架构与运行流程",
+            "提出可复用的 Gateway + Session Key + Agent Loop 设计范式"
+          ]
+        },
+        "wordTimings": [
+          {
+            "text": "总结一句话",
+            "offsetMs": 0,
+            "durationMs": 784
+          },
+          {
+            "text": "：",
+            "offsetMs": 784,
+            "durationMs": 156
+          },
+          {
+            "text": "OpenClaw",
+            "offsetMs": 940,
+            "durationMs": 1254
+          },
+          {
+            "text": "做的不是更聪明的",
+            "offsetMs": 2194,
+            "durationMs": 1254
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 3448,
+            "durationMs": 784
+          },
+          {
+            "text": "，",
+            "offsetMs": 4232,
+            "durationMs": 156
+          },
+          {
+            "text": "而是更靠谱的",
+            "offsetMs": 4388,
+            "durationMs": 941
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 5329,
+            "durationMs": 784
+          },
+          {
+            "text": "运行系统",
+            "offsetMs": 6113,
+            "durationMs": 627
+          },
+          {
+            "text": "。",
+            "offsetMs": 6740,
+            "durationMs": 156
+          },
+          {
+            "text": "它用",
+            "offsetMs": 6896,
+            "durationMs": 313
+          },
+          {
+            "text": "Gateway",
+            "offsetMs": 7209,
+            "durationMs": 1098
+          },
+          {
+            "text": "扛住复杂性",
+            "offsetMs": 8307,
+            "durationMs": 784
+          },
+          {
+            "text": "，",
+            "offsetMs": 9091,
+            "durationMs": 156
+          },
+          {
+            "text": "用",
+            "offsetMs": 9247,
+            "durationMs": 156
+          },
+          {
+            "text": "Session",
+            "offsetMs": 9403,
+            "durationMs": 1098
+          },
+          {
+            "text": "Key",
+            "offsetMs": 10501,
+            "durationMs": 470
+          },
+          {
+            "text": "划清边界",
+            "offsetMs": 10971,
+            "durationMs": 627
+          },
+          {
+            "text": "，",
+            "offsetMs": 11598,
+            "durationMs": 156
+          },
+          {
+            "text": "让",
+            "offsetMs": 11754,
+            "durationMs": 156
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 11910,
+            "durationMs": 784
+          },
+          {
+            "text": "Loop",
+            "offsetMs": 12694,
+            "durationMs": 627
+          },
+          {
+            "text": "专心思考",
+            "offsetMs": 13321,
+            "durationMs": 627
+          },
+          {
+            "text": "。",
+            "offsetMs": 13948,
+            "durationMs": 156
+          },
+          {
+            "text": "这种以系统设计取胜的思路",
+            "offsetMs": 14104,
+            "durationMs": 1882
+          },
+          {
+            "text": "，",
+            "offsetMs": 15986,
+            "durationMs": 156
+          },
+          {
+            "text": "为后续通用",
+            "offsetMs": 16142,
+            "durationMs": 784
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 16926,
+            "durationMs": 784
+          },
+          {
+            "text": "框架提供了范本",
+            "offsetMs": 17710,
+            "durationMs": 1098
+          },
+          {
+            "text": "。",
+            "offsetMs": 18808,
+            "durationMs": 156
+          },
+          {
+            "text": "未来",
+            "offsetMs": 18964,
+            "durationMs": 313
+          },
+          {
+            "text": "Agent",
+            "offsetMs": 19277,
+            "durationMs": 784
+          },
+          {
+            "text": "能走多远",
+            "offsetMs": 20061,
+            "durationMs": 627
+          },
+          {
+            "text": "，",
+            "offsetMs": 20688,
+            "durationMs": 156
+          },
+          {
+            "text": "很可能不只取决于模型",
+            "offsetMs": 20844,
+            "durationMs": 1568
+          },
+          {
+            "text": "，",
+            "offsetMs": 22412,
+            "durationMs": 156
+          },
+          {
+            "text": "而取决于你有没有这样一套",
+            "offsetMs": 22568,
+            "durationMs": 1882
+          },
+          {
+            "text": "“",
+            "offsetMs": 24450,
+            "durationMs": 156
+          },
+          {
+            "text": "不掉链子",
+            "offsetMs": 24606,
+            "durationMs": 627
+          },
+          {
+            "text": "”",
+            "offsetMs": 25233,
+            "durationMs": 156
+          },
+          {
+            "text": "的底座",
+            "offsetMs": 25389,
+            "durationMs": 470
+          },
+          {
+            "text": "。",
+            "offsetMs": 25859,
+            "durationMs": 156
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+target-version = "py311"
+line-length = 120
+
+[lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "RUF",    # ruff-specific
+    "PTH",    # flake8-use-pathlib
+    "T20",    # flake8-print (catch stray prints)
+    "PIE",    # flake8-pie
+    "C4",     # flake8-comprehensions
+    "PLC",    # pylint convention
+    "PLE",    # pylint error
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function call in default argument (common in FastAPI Depends)
+    "UP007",  # use X | Y for union types (keep Optional for readability)
+    "RUF001", # ambiguous unicode in strings (中文项目，大量中文字符串)
+    "RUF002", # ambiguous unicode in docstrings
+    "RUF003", # ambiguous unicode in comments
+    "RUF012", # mutable class variable annotation (conflicts with Pydantic)
+    "T201",   # print() allowed in CLI
+    "PLC0415", # import outside top-level (lazy imports for heavy deps like MinerU)
+]
+
+[lint.per-file-ignores]
+"packages/agent/theia/cli.py" = ["T201"]
+"scripts/*" = ["T201"]
+
+[lint.isort]
+known-first-party = ["theia", "server"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

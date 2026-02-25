@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280" fill="none">
+  <!-- antenna -->
+  <line x1="100" y1="20" x2="100" y2="45" stroke="#5BB5B0" stroke-width="3"/>
+  <circle cx="100" cy="16" r="6" fill="#F5D76E"/>
+  <!-- head -->
+  <rect x="55" y="45" width="90" height="70" rx="20" fill="#5BB5B0"/>
+  <rect x="72" y="62" width="22" height="18" rx="6" fill="white"/>
+  <rect x="106" y="62" width="22" height="18" rx="6" fill="white"/>
+  <circle cx="83" cy="71" r="5" fill="#2D3748"/>
+  <circle cx="117" cy="71" r="5" fill="#2D3748"/>
+  <circle cx="85" cy="69" r="2" fill="white"/>
+  <circle cx="119" cy="69" r="2" fill="white"/>
+  <path d="M85 95c5 6 25 6 30 0" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- body -->
+  <rect x="60" y="120" width="80" height="90" rx="15" fill="#5BB5B0" opacity="0.85"/>
+  <rect x="80" y="135" width="40" height="30" rx="8" fill="#F0F9F7" opacity="0.6"/>
+  <circle cx="100" cy="150" r="8" fill="#F5D76E" opacity="0.8"/>
+  <!-- arms -->
+  <rect x="20" y="130" width="35" height="16" rx="8" fill="#5BB5B0"/>
+  <rect x="145" y="130" width="35" height="16" rx="8" fill="#5BB5B0"/>
+  <circle cx="18" cy="138" r="10" fill="#5BB5B0" opacity="0.7"/>
+  <circle cx="182" cy="138" r="10" fill="#5BB5B0" opacity="0.7"/>
+  <!-- pointer stick in right hand -->
+  <line x1="182" y1="138" x2="195" y2="90" stroke="#E8C84A" stroke-width="3" stroke-linecap="round"/>
+  <!-- legs -->
+  <rect x="72" y="210" width="20" height="40" rx="8" fill="#5BB5B0" opacity="0.7"/>
+  <rect x="108" y="210" width="20" height="40" rx="8" fill="#5BB5B0" opacity="0.7"/>
+  <rect x="68" y="248" width="28" height="12" rx="6" fill="#5BB5B0"/>
+  <rect x="104" y="248" width="28" height="12" rx="6" fill="#5BB5B0"/>
+</svg>

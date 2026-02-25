@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+*.egg
+
+# Node.js
+node_modules/
+packages/video/out/
+packages/video/dist/
+
+# Workspace (runtime data)
+workspace/
+.theia_cache/
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Remotion
+packages/video/public/audio/
+packages/video/public/video_script.json

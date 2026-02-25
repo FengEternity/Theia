@@ -1,0 +1,51 @@
+{
+	"repository": {
+		"url": "https://github.com/remotion-dev/remotion/tree/main/packages/studio-server"
+	},
+	"name": "@remotion/studio-server",
+	"version": "4.0.428",
+	"description": "Run a Remotion Studio with a server backend",
+	"main": "dist",
+	"sideEffects": false,
+	"scripts": {
+		"lint": "eslint src",
+		"test": "bun test src",
+		"formatting": "prettier src --check",
+		"make": "tsgo -d"
+	},
+	"author": "Jonny Burger <jonny@remotion.dev>",
+	"contributors": [],
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/remotion-dev/remotion/issues"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"dependencies": {
+		"@babel/parser": "7.24.1",
+		"semver": "7.5.3",
+		"remotion": "4.0.428",
+		"recast": "0.23.11",
+		"@remotion/bundler": "4.0.428",
+		"@remotion/renderer": "4.0.428",
+		"@remotion/studio-shared": "4.0.428",
+		"memfs": "3.4.3",
+		"source-map": "0.7.3",
+		"open": "^8.4.2"
+	},
+	"devDependencies": {
+		"ast-types": "0.16.1",
+		"react": "19.2.3",
+		"@babel/types": "7.24.0",
+		"@types/semver": "^7.3.4",
+		"@remotion/eslint-config-internal": "4.0.428",
+		"eslint": "9.19.0",
+		"@types/node": "20.12.14",
+		"@typescript/native-preview": "7.0.0-dev.20260217.1"
+	},
+	"exports": {
+		".": "./dist/index.js",
+		"./package.json": "./package.json"
+	}
+}

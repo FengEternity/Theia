@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280" fill="none">
+  <!-- antenna with sparkle -->
+  <line x1="100" y1="20" x2="100" y2="45" stroke="#5BB5B0" stroke-width="3"/>
+  <circle cx="100" cy="16" r="6" fill="#F5D76E"/>
+  <path d="M88 10l-4-8M112 10l4-8M100 4V-4" stroke="#F5D76E" stroke-width="2" stroke-linecap="round"/>
+  <!-- head -->
+  <rect x="55" y="45" width="90" height="70" rx="20" fill="#5BB5B0"/>
+  <!-- happy eyes (upward arcs) -->
+  <path d="M72 72c3-8 19-8 22 0" stroke="#2D3748" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M106 72c3-8 19-8 22 0" stroke="#2D3748" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- big smile -->
+  <path d="M78 92c7 12 37 12 44 0" stroke="white" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- blush -->
+  <circle cx="70" cy="88" r="6" fill="#FF9999" opacity="0.4"/>
+  <circle cx="130" cy="88" r="6" fill="#FF9999" opacity="0.4"/>
+  <!-- body -->
+  <rect x="60" y="120" width="80" height="90" rx="15" fill="#5BB5B0" opacity="0.85"/>
+  <rect x="80" y="135" width="40" height="30" rx="8" fill="#F0F9F7" opacity="0.6"/>
+  <path d="M90 145l5 10 15-20" stroke="#6BCB77" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- arms raised in celebration -->
+  <path d="M55 138c-15-10-25-30-30-45" stroke="#5BB5B0" stroke-width="16" stroke-linecap="round"/>
+  <path d="M145 138c15-10 25-30 30-45" stroke="#5BB5B0" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="23" cy="90" r="10" fill="#5BB5B0" opacity="0.7"/>
+  <circle cx="177" cy="90" r="10" fill="#5BB5B0" opacity="0.7"/>
+  <!-- legs -->
+  <rect x="72" y="210" width="20" height="40" rx="8" fill="#5BB5B0" opacity="0.7"/>
+  <rect x="108" y="210" width="20" height="40" rx="8" fill="#5BB5B0" opacity="0.7"/>
+  <rect x="68" y="248" width="28" height="12" rx="6" fill="#5BB5B0"/>
+  <rect x="104" y="248" width="28" height="12" rx="6" fill="#5BB5B0"/>
+</svg>

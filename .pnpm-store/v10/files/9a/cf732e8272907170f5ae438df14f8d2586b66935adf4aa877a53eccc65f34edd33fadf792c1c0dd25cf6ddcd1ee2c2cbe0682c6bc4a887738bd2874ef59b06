@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.EXTRA_PACKAGES_DOCS = exports.EXTRA_PACKAGES = void 0;
+exports.EXTRA_PACKAGES = {
+    mediabunny: '1.34.4',
+    '@mediabunny/ac3': '1.34.4',
+    zod: '4.3.6',
+};
+exports.EXTRA_PACKAGES_DOCS = {
+    mediabunny: 'https://www.remotion.dev/docs/mediabunny/version',
+    '@mediabunny/ac3': 'https://www.remotion.dev/docs/mediabunny/formats#ac-3-and-e-ac-3',
+    zod: 'https://zod.dev',
+};

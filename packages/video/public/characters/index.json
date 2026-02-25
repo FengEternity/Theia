@@ -1,0 +1,52 @@
+{
+  "mascot": {
+    "otter": {
+      "explaining": "mascot/explaining.svg",
+      "happy": "mascot/happy.svg",
+      "surprised": "mascot/surprised.svg",
+      "talking": "mascot/talking.svg",
+      "teamwork": "mascot/teamwork.svg",
+      "thinking": "mascot/thinking.svg",
+      "pointing": "mascot/pointing.svg"
+    },
+    "pandi": {
+      "explaining": "mascot/pandi-explaining.svg",
+      "reading": "mascot/pandi-reading.svg",
+      "working": "mascot/pandi-working.svg",
+      "talking": "mascot/pandi-talking.svg",
+      "teamwork": "mascot/pandi-teamwork.svg",
+      "thinking": "mascot/pandi-thinking.svg"
+    }
+  },
+  "ai-figure": {
+    "robot-teacher": "ai-figure/robot-teacher.svg",
+    "robot-thinking": "ai-figure/robot-thinking.svg",
+    "robot-happy": "ai-figure/robot-happy.svg"
+  },
+  "decorations": {
+    "icons": {
+      "lightbulb": "decorations/icons/lightbulb.svg",
+      "gear": "decorations/icons/gear.svg",
+      "code": "decorations/icons/code.svg",
+      "brain": "decorations/icons/brain.svg",
+      "rocket": "decorations/icons/rocket.svg"
+    },
+    "arrows": {
+      "curved-right": "decorations/arrows/curved-right.svg",
+      "wavy-down": "decorations/arrows/wavy-down.svg",
+      "straight-right": "decorations/arrows/straight-right.svg"
+    },
+    "bubbles": {
+      "speech": "decorations/bubbles/speech.svg",
+      "thought": "decorations/bubbles/thought.svg",
+      "exclaim": "decorations/bubbles/exclaim.svg"
+    },
+    "stickers": {
+      "star": "decorations/stickers/star.svg",
+      "checkmark": "decorations/stickers/checkmark.svg",
+      "question": "decorations/stickers/question.svg",
+      "heart": "decorations/stickers/heart.svg",
+      "warning": "decorations/stickers/warning.svg"
+    }
+  }
+}

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280" fill="none">
+  <!-- antenna -->
+  <line x1="100" y1="20" x2="100" y2="45" stroke="#5BB5B0" stroke-width="3"/>
+  <circle cx="100" cy="16" r="6" fill="#F5D76E">
+    <animate attributeName="opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <!-- head -->
+  <rect x="55" y="45" width="90" height="70" rx="20" fill="#5BB5B0"/>
+  <rect x="72" y="62" width="22" height="18" rx="6" fill="white"/>
+  <rect x="106" y="62" width="22" height="18" rx="6" fill="white"/>
+  <circle cx="83" cy="71" r="5" fill="#2D3748"/>
+  <circle cx="117" cy="71" r="5" fill="#2D3748"/>
+  <circle cx="85" cy="69" r="2" fill="white"/>
+  <circle cx="119" cy="69" r="2" fill="white"/>
+  <path d="M88 96c3 3 21 3 24 0" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <!-- body -->
+  <rect x="60" y="120" width="80" height="90" rx="15" fill="#5BB5B0" opacity="0.85"/>
+  <rect x="80" y="135" width="40" height="30" rx="8" fill="#F0F9F7" opacity="0.6"/>
+  <!-- loading dots on chest -->
+  <circle cx="90" cy="150" r="4" fill="#F5D76E">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" begin="0s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="100" cy="150" r="4" fill="#F5D76E">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" begin="0.3s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="110" cy="150" r="4" fill="#F5D76E">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" begin="0.6s" repeatCount="indefinite"/>
+  </circle>
+  <!-- right arm up (thinking pose) -->
+  <rect x="20" y="130" width="35" height="16" rx="8" fill="#5BB5B0"/>
+  <path d="M145 138c10-5 20-20 30-35" stroke="#5BB5B0" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="18" cy="138" r="10" fill="#5BB5B0" opacity="0.7"/>
+  <circle cx="177" cy="100" r="10" fill="#5BB5B0" opacity="0.7"/>
+  <!-- thought bubbles -->
+  <circle cx="190" cy="80" r="5" fill="#F0F9F7" stroke="#5BB5B0" stroke-width="1.5"/>
+  <circle cx="195" cy="60" r="3" fill="#F0F9F7" stroke="#5BB5B0" stroke-width="1"/>
+  <!-- legs -->
+  <rect x="72" y="210" width="20" height="40" rx="8" fill="#5BB5B0" opacity="0.7"/>
+  <rect x="108" y="210" width="20" height="40" rx="8" fill="#5BB5B0" opacity="0.7"/>
+  <rect x="68" y="248" width="28" height="12" rx="6" fill="#5BB5B0"/>
+  <rect x="104" y="248" width="28" height="12" rx="6" fill="#5BB5B0"/>
+</svg>

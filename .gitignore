@@ -22,6 +22,9 @@ workspace/
 # IDE
 .vscode/
 .idea/
+.cursor/
+.pnpm-store/
+.ruff_cache/
 
 # OS
 .DS_Store

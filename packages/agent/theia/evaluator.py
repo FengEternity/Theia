@@ -14,7 +14,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from .llm_client import robust_completion
 from .prompts.evaluator_judge import JUDGE_PROMPT, JUDGE_SYSTEM
@@ -57,14 +57,21 @@ class L2Score:
     entity_match: float = 0.0
     section_coverage: float = 0.0
     diversity: float = 0.0
+    information_density: float = 0.0
 
     @property
     def total(self) -> float:
-        return self.grounding + self.entity_match + self.section_coverage + self.diversity
+        return (
+            self.grounding
+            + self.entity_match
+            + self.section_coverage
+            + self.diversity
+            + self.information_density
+        )
 
     @property
     def max_total(self) -> float:
-        return 4.0
+        return 4.5
 
     def detail(self) -> dict[str, float]:
         return {
@@ -72,6 +79,7 @@ class L2Score:
             "entity_match": round(self.entity_match, 3),
             "section_coverage": round(self.section_coverage, 3),
             "diversity": round(self.diversity, 3),
+            "information_density": round(self.information_density, 3),
             "l2_total": round(self.total, 3),
         }
 
@@ -123,7 +131,8 @@ class EvalResult:
 
     @property
     def max_total(self) -> float:
-        return 10.0 if self.l3 else 6.0
+        base = self.l1.max_total + self.l2.max_total
+        return base + self.l3.max_total if self.l3 else base
 
     def detail(self) -> dict[str, Any]:
         d: dict[str, Any] = {**self.l1.detail(), **self.l2.detail()}
@@ -204,6 +213,39 @@ def _jaccard(a: set, b: set) -> float:
     if not a and not b:
         return 0.0
     return len(a & b) / max(len(a | b), 1)
+
+
+def _ngrams(tokens: list[str], n: int) -> set[tuple[str, ...]]:
+    """生成 n-gram 集合。"""
+    return {tuple(tokens[i : i + n]) for i in range(len(tokens) - n + 1)}
+
+
+def _soft_grounding(claim_text: str, section_text: str) -> float:
+    """基于 bigram 重叠的软溯源评分 (0.0-1.0)。
+
+    综合考虑：
+    - unigram 精确匹配（权重 0.4）
+    - bigram 重叠率（权重 0.6，捕获短语级别一致性）
+    """
+    claim_terms = [t.lower() for t in _extract_key_terms(claim_text)]
+    if not claim_terms:
+        return 0.0
+
+    section_lower = section_text.lower()
+    section_words = [w.lower() for w in _EN_WORD_RE.findall(section_text)]
+
+    uni_found = sum(1 for t in claim_terms if t in section_lower)
+    uni_ratio = uni_found / len(claim_terms) if claim_terms else 0.0
+
+    claim_bigrams = _ngrams(claim_terms, 2)
+    section_bigrams = _ngrams(section_words, 2)
+    if claim_bigrams:
+        bi_overlap = len(claim_bigrams & section_bigrams)
+        bi_ratio = bi_overlap / len(claim_bigrams)
+    else:
+        bi_ratio = uni_ratio
+
+    return 0.4 * uni_ratio + 0.6 * bi_ratio
 
 
 # ===================================================================
@@ -302,7 +344,7 @@ class ExtractionEvaluator:
         return s
 
     # ---------------------------------------------------------------
-    # L2: NLP 指标 (满分 4.0)
+    # L2: NLP 指标 (满分 4.5)
     # ---------------------------------------------------------------
 
     def evaluate_l2(self, summary: PaperSummary) -> L2Score:
@@ -312,42 +354,40 @@ class ExtractionEvaluator:
         s.entity_match = self._entity_match_score(summary)
         s.section_coverage = self._section_coverage_score(summary)
         s.diversity = self._diversity_score(summary)
+        s.information_density = self._information_density_score(summary)
 
         return s
 
     def _grounding_score(self, summary: PaperSummary) -> float:
-        """事实锚定率 (0-1.5): 声明中的关键术语是否出现在原文对应章节。"""
-        claims: list[tuple[str, list[str]]] = []
+        """事实锚定率 (0-1.5): 声明是否在原文对应章节有依据。
+
+        使用 bigram 重叠的软匹配，比精确术语匹配更鲁棒。
+        每条声明获得 0-1 的连续溯源分数（而非二元判定），
+        最终取所有声明的平均分。
+        """
+        claims: list[tuple[str, str]] = []
 
         for step in summary.method.key_steps:
-            terms = _extract_key_terms(step)
-            claims.append(("method", terms))
+            claims.append(("method", step))
 
         for metric in summary.results.metrics:
-            nums = _extract_numbers(metric)
-            terms = _extract_key_terms(metric)
-            claims.append(("experiments", nums + terms))
+            claims.append(("experiments", metric))
 
         for c in summary.contributions:
-            terms = _extract_key_terms(c)
-            claims.append(("any", terms))
+            claims.append(("any", c))
 
         if not claims:
             return 0.0
 
-        grounded = 0
-        for section_hint, terms in claims:
-            if not terms:
-                continue
+        total_score = 0.0
+        for section_hint, claim_text in claims:
             search_text = self._get_section(section_hint)
             if not search_text:
                 search_text = self._original
-            search_lower = search_text.lower()
-            if any(t.lower() in search_lower for t in terms):
-                grounded += 1
+            total_score += _soft_grounding(claim_text, search_text)
 
-        ratio = grounded / len(claims)
-        return round(1.5 * ratio, 3)
+        avg = total_score / len(claims)
+        return round(1.5 * avg, 3)
 
     def _entity_match_score(self, summary: PaperSummary) -> float:
         """实体匹配度 (0-1.0): 命名实体是否出现在原文。"""
@@ -397,7 +437,8 @@ class ExtractionEvaluator:
             extracted_terms = set(t.lower() for t in _extract_key_terms(extracted_text))
             section_terms = set(t.lower() for t in _extract_key_terms(section_text[:8000]))
             overlap = len(extracted_terms & section_terms)
-            if overlap >= 2:
+            min_overlap = 1 if len(extracted_terms) < 8 else 2
+            if overlap >= min_overlap:
                 covered += 1
 
         if total == 0:
@@ -428,6 +469,48 @@ class ExtractionEvaluator:
 
         return round(min(score, 0.5), 3)
 
+    def _information_density_score(self, summary: PaperSummary) -> float:
+        """信息密度 (0-0.5): 检测字段内容是否有实质性信息。
+
+        评估标准：
+        - 关键字段长度是否达到最低阈值（过短=空泛）
+        - key_steps 中的步骤是否包含技术术语（排除纯自然语言描述）
+        - method.summary 中是否包含领域特定名词
+        """
+        score = 0.0
+
+        # 关键字段最低长度检查 (0-0.2)
+        length_checks = [
+            (summary.problem, 80),
+            (summary.method.summary, 80),
+            (summary.results.findings, 60),
+            (summary.conclusion, 60),
+        ]
+        passed = sum(1 for text, min_len in length_checks if text and len(text) >= min_len)
+        score += 0.2 * (passed / max(len(length_checks), 1))
+
+        # key_steps 技术术语密度 (0-0.15)
+        if summary.method.key_steps:
+            steps_with_terms = 0
+            for step in summary.method.key_steps:
+                terms = _extract_key_terms(step)
+                if len(terms) >= 2:
+                    steps_with_terms += 1
+            ratio = steps_with_terms / len(summary.method.key_steps)
+            score += 0.15 * ratio
+
+        # contributions 信息量 (0-0.15)
+        if summary.contributions:
+            informative = 0
+            for c in summary.contributions:
+                terms = _extract_key_terms(c)
+                if len(terms) >= 3 and len(c) >= 40:
+                    informative += 1
+            ratio = informative / len(summary.contributions)
+            score += 0.15 * ratio
+
+        return round(min(score, 0.5), 3)
+
     # ---------------------------------------------------------------
     # L3: LLM-as-Judge (满分 4.0)
     # ---------------------------------------------------------------
@@ -439,6 +522,7 @@ class ExtractionEvaluator:
         judge_model: str = "openai/gpt-5.2-chat",
         judge_api_key: str | None = None,
         judge_api_base: str | None = None,
+        on_token: Callable[[str], None] | None = None,
     ) -> L3Score:
         """使用 LLM 做深度评估。同步调用。"""
         context = self._build_judge_context()
@@ -464,7 +548,7 @@ class ExtractionEvaluator:
             kwargs["api_base"] = judge_api_base
 
         try:
-            resp = robust_completion(kwargs)
+            resp = robust_completion(kwargs, on_token=on_token)
         except Exception as exc:
             logger.warning("L3 Judge 调用失败: %s", exc)
             return L3Score(notes=f"Judge 调用失败: {exc}")

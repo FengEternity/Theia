@@ -12,7 +12,7 @@ import logging
 import re
 import threading
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
@@ -123,6 +123,18 @@ def _notify(
             )
         except Exception:
             raise
+
+
+def _make_on_token(workspace: str, step_name: str) -> Callable[[str], None] | None:
+    """为指定 workspace 和步骤生成 token 流式回调。
+
+    如果没有注册回调或回调不支持 on_token，返回 None。
+    """
+    with _callback_lock:
+        cb = _callback_registry.get(workspace)
+    if cb and hasattr(cb, "on_token"):
+        return lambda text: cb.on_token(step_name, text)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -239,6 +251,17 @@ def extract_node(state: PipelineState) -> dict:
     if cache_key:
         summary = get_cached(workspace, cache_key, PaperSummary)
 
+    stem = pdf_stem(pdf_input)
+
+    if summary is None:
+        existing_file = workspace / "scripts" / f"{stem}_summary.json"
+        if existing_file.exists():
+            try:
+                summary = PaperSummary.model_validate_json(existing_file.read_text(encoding="utf-8"))
+                logger.info("使用已有提取结果: %s", existing_file)
+            except Exception:
+                pass
+
     if summary is None:
         model = state.get("extract_model") or state.get("llm_model", "gpt-4o")
         scan_model = state.get("scan_model") or "gpt-4o-mini"
@@ -266,12 +289,12 @@ def extract_node(state: PipelineState) -> dict:
             api_base=state.get("extract_api_base"),
             figure_api_key=state.get("figure_api_key"),
             figure_api_base=state.get("figure_api_base"),
+            on_token=_make_on_token(str(workspace), "extract"),
         )
         if cache_key:
             set_cached(workspace, cache_key, summary)
 
     # 从 arXiv ID 推断年份作为校验/修正
-    stem = pdf_stem(pdf_input)
     arxiv_match = re.match(r"(\d{2})(\d{2})\.", stem)
     if arxiv_match:
         arxiv_year = 2000 + int(arxiv_match.group(1))
@@ -286,6 +309,20 @@ def extract_node(state: PipelineState) -> dict:
     out.write_text(summary_json, encoding="utf-8")
 
     logger.info("已提取: '%s' by %s", summary.title, ", ".join(summary.authors[:3]))
+
+    # --- 质量门控（作为提取流程的一部分） ---
+    from .quality_gate import run_quality_gate
+
+    content_list_json_str = state.get("content_list_json")
+    summary = run_quality_gate(
+        summary,
+        state["markdown_content"],
+        state,
+        content_list_json=content_list_json_str,
+    )
+    summary_json = summary.model_dump_json(indent=2)
+    out.write_text(summary_json, encoding="utf-8")
+
     _notify(state, 2, "extract", "completed", f"已提取: '{summary.title}'", progress_pct=100)
 
     if state.get("interactive_mode"):
@@ -354,6 +391,7 @@ def script_node(state: PipelineState) -> dict:
             height=h,
             narration_style=narration_style,
             theme=theme,
+            on_token=_make_on_token(workspace, "script"),
         )
 
     # 将提取的图片分配给场景
@@ -588,23 +626,19 @@ def build_graph(*, with_checkpointer: bool = False, interactive: bool = False) -
     返回:
         编译后的 StateGraph，可直接调用。
     """
-    from .quality_gate import quality_gate_node
-
     builder = StateGraph(PipelineState)
 
     builder.add_node("parse_node", parse_node)
     builder.add_node("extract_node", extract_node)
-    builder.add_node("quality_gate", quality_gate_node)
     builder.add_node("script_node", script_node)
     builder.add_node("tts_node", tts_node)
     builder.add_node("render_node", render_node)
 
     builder.add_edge(START, "parse_node")
     builder.add_edge("parse_node", "extract_node")
-    builder.add_edge("extract_node", "quality_gate")
 
     builder.add_conditional_edges(
-        "quality_gate",
+        "extract_node",
         route_after_extract,
         {"script_node": "script_node", "extract_node": "extract_node"},
     )
@@ -637,8 +671,6 @@ def build_partial_graph(start_step: str, *, interactive: bool = False) -> StateG
     返回:
         编译后的 StateGraph（仅包含从 start_step 开始的节点）。
     """
-    from .quality_gate import quality_gate_node
-
     if start_step not in _STEP_ORDER:
         raise ValueError(f"无效步骤: {start_step}，有效值: {_STEP_ORDER}")
 
@@ -648,7 +680,6 @@ def build_partial_graph(start_step: str, *, interactive: bool = False) -> StateG
     node_funcs = {
         "parse_node": parse_node,
         "extract_node": extract_node,
-        "quality_gate": quality_gate_node,
         "script_node": script_node,
         "tts_node": tts_node,
         "render_node": render_node,
@@ -659,10 +690,6 @@ def build_partial_graph(start_step: str, *, interactive: bool = False) -> StateG
         node_name = _STEP_TO_NODE[step]
         builder.add_node(node_name, node_funcs[node_name])
 
-    # 如果包含 extract，也加入 quality_gate
-    if "extract" in steps and "script" in steps:
-        builder.add_node("quality_gate", quality_gate_node)
-
     first_node = _STEP_TO_NODE[steps[0]]
     builder.add_edge(START, first_node)
 
@@ -670,9 +697,8 @@ def build_partial_graph(start_step: str, *, interactive: bool = False) -> StateG
         src = _STEP_TO_NODE[steps[i]]
         dst = _STEP_TO_NODE[steps[i + 1]]
         if src == "extract_node" and dst == "script_node":
-            builder.add_edge(src, "quality_gate")
             builder.add_conditional_edges(
-                "quality_gate",
+                src,
                 route_after_extract,
                 {"script_node": dst, "extract_node": src},
             )

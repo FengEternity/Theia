@@ -8,6 +8,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import Callable
 
 from pydantic import ValidationError
 
@@ -43,6 +44,7 @@ def _extract_multi_pass(
     api_base: str | None = None,
     figure_api_key: str | None = None,
     figure_api_base: str | None = None,
+    on_token: Callable[[str], None] | None = None,
 ) -> PaperSummary:
     """三遍渐进式提取：快速扫描 → 深度提取 → 图表分析 → 融合。"""
     logger.info("=" * 40)
@@ -66,6 +68,7 @@ def _extract_multi_pass(
             max_retries=max_retries,
             api_key=api_key,
             api_base=api_base,
+            on_token=on_token,
         )
     except Exception as exc:
         if scan_model != model:
@@ -77,6 +80,7 @@ def _extract_multi_pass(
                 max_retries=max_retries,
                 api_key=api_key,
                 api_base=api_base,
+                on_token=on_token,
             )
         else:
             raise
@@ -106,6 +110,7 @@ def _extract_multi_pass(
             max_retries=max_retries,
             api_key=api_key,
             api_base=api_base,
+            on_token=on_token,
         )
 
     def _do_pass3():
@@ -123,6 +128,7 @@ def _extract_multi_pass(
             model=figure_model,
             api_key=figure_api_key or api_key,
             api_base=figure_api_base or api_base,
+            on_token=on_token,
         )
 
     analyzed_figures = None
@@ -156,8 +162,9 @@ def _extract_multi_pass(
     evaluator = ExtractionEvaluator(markdown_content, labeled_sections)
     result = evaluator.evaluate_fast(summary)
     logger.info(
-        "最终质量评分: %.1f/6.0 (L1=%.1f L2=%.1f)",
+        "最终质量评分: %.1f/%.1f (L1=%.1f L2=%.1f)",
         result.fast_total,
+        result.max_total,
         result.l1.total,
         result.l2.total,
     )
@@ -173,6 +180,7 @@ def _pass1_quick_scan(
     max_retries: int = 3,
     api_key: str | None = None,
     api_base: str | None = None,
+    on_token: Callable[[str], None] | None = None,
 ) -> PaperOverview:
     """Pass 1：用轻量模型快速扫描摘要、引言、结论和章节结构。"""
     scan_parts: list[str] = []
@@ -209,7 +217,7 @@ def _pass1_quick_scan(
                 kwargs["api_key"] = api_key
             if api_base:
                 kwargs["api_base"] = api_base
-            response = robust_completion(kwargs)
+            response = robust_completion(kwargs, on_token=on_token)
             raw = extract_json_from_response(response)
             data = json.loads(raw)
             return PaperOverview(**data)
@@ -239,6 +247,7 @@ def _pass2_deep_extract(
     max_retries: int,
     api_key: str | None = None,
     api_base: str | None = None,
+    on_token: Callable[[str], None] | None = None,
 ) -> PaperSummary:
     """Pass 2：带着问题对重点章节进行深度提取。
 
@@ -270,6 +279,7 @@ def _pass2_deep_extract(
             api_key=api_key,
             api_base=api_base,
             chunk_chars=chunk_chars,
+            on_token=on_token,
         )
 
     overview_json = json.dumps(
@@ -300,7 +310,7 @@ def _pass2_deep_extract(
                 kwargs["api_key"] = api_key
             if api_base:
                 kwargs["api_base"] = api_base
-            response = robust_completion(kwargs)
+            response = robust_completion(kwargs, on_token=on_token)
             raw = extract_json_from_response(response)
             data = json.loads(raw)
             return PaperSummary(**data)

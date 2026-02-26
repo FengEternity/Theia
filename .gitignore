@@ -30,6 +30,8 @@ workspace/
 .DS_Store
 Thumbs.db
 
-# Remotion
+# Remotion runtime artifacts
 packages/video/public/audio/
+packages/video/public/figures/
 packages/video/public/video_script.json
+packages/video/public/_render_props.json

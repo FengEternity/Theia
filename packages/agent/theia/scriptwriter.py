@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Callable
 
 from .llm_client import robust_completion
 from .prompts.scriptwriter import NARRATION_STYLE_OVERRIDES, SCRIPT_SYSTEM_PROMPT
@@ -116,6 +117,7 @@ def generate_video_script(
     height: int = 1080,
     narration_style: str = "default",
     theme: str = "academic",
+    on_token: Callable[[str], None] | None = None,
 ) -> VideoScript:
     """将论文摘要转换为带有时间标注的视频脚本。
 
@@ -174,7 +176,7 @@ def generate_video_script(
         "response_format": {"type": "json_object"},
     }
 
-    response = robust_completion(kwargs)
+    response = robust_completion(kwargs, on_token=on_token)
 
     raw = response.choices[0].message.content.strip()
     if raw.startswith("```"):

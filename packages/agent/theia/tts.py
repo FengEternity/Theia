@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import os
 import re
 from pathlib import Path
 
@@ -85,13 +86,17 @@ class TTSBackend:
         raise NotImplementedError
 
 
+_TTS_MAX_RETRIES = int(os.getenv("THEIA_TTS_MAX_RETRIES", "3"))
+_TTS_TIMEOUT = int(os.getenv("THEIA_TTS_TIMEOUT", "30"))
+
+
 class EdgeTTSBackend(TTSBackend):
-    """Edge TTS 后端（默认）。"""
+    """Edge TTS 后端（默认），内置重试和超时机制。"""
 
     def __init__(self, rate_offset: int = 0):
         self.rate_offset = rate_offset
 
-    async def synthesize(self, text: str, output_path: Path, voice: str, scene_type: str) -> tuple[float, list[dict]]:
+    async def _do_synthesize(self, text: str, output_path: Path, voice: str, scene_type: str) -> tuple[float, list[dict]]:
         prosody = SCENE_PROSODY.get(scene_type, {})
         scene_rate = int(prosody.get("rate", "+0%").replace("%", ""))
         total_rate = scene_rate + self.rate_offset
@@ -126,6 +131,38 @@ class EdgeTTSBackend(TTSBackend):
             scene_type,
         )
         return duration, word_timings
+
+    async def synthesize(self, text: str, output_path: Path, voice: str, scene_type: str) -> tuple[float, list[dict]]:
+        last_exc: Exception | None = None
+        for attempt in range(1, _TTS_MAX_RETRIES + 1):
+            try:
+                return await asyncio.wait_for(
+                    self._do_synthesize(text, output_path, voice, scene_type),
+                    timeout=_TTS_TIMEOUT,
+                )
+            except (TimeoutError, asyncio.TimeoutError, OSError, ConnectionError) as exc:
+                last_exc = exc
+                delay = min(2 ** attempt, 15)
+                logger.warning(
+                    "TTS 第 %d/%d 次尝试失败 (%s: %s)，%ds 后重试",
+                    attempt, _TTS_MAX_RETRIES, type(exc).__name__, str(exc)[:100], delay,
+                )
+                await asyncio.sleep(delay)
+            except Exception as exc:
+                last_exc = exc
+                if attempt < _TTS_MAX_RETRIES:
+                    delay = min(2 ** attempt, 15)
+                    logger.warning(
+                        "TTS 第 %d/%d 次尝试失败 (%s)，%ds 后重试",
+                        attempt, _TTS_MAX_RETRIES, exc, delay,
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    break
+
+        raise RuntimeError(
+            f"Edge TTS 在 {_TTS_MAX_RETRIES} 次重试后仍失败: {last_exc}"
+        ) from last_exc
 
 
 def _estimate_word_timings(text: str, duration_s: float) -> list[dict]:
@@ -232,16 +269,20 @@ async def _synthesize_all(
     """
     audio_dir.mkdir(parents=True, exist_ok=True)
 
-    async def _do_one(i: int, scene_type: str, narration: str) -> tuple[int, float, list[dict]]:
+    async def _do_one(i: int, scene_type: str, narration: str) -> tuple[int, float, list[dict]] | None:
         audio_path = audio_dir / f"scene_{i}.mp3"
-        duration_s, word_timings = await _synthesize_one(
-            narration,
-            audio_path,
-            voice,
-            scene_type=scene_type,
-            backend=backend,
-        )
-        return i, duration_s, word_timings
+        try:
+            duration_s, word_timings = await _synthesize_one(
+                narration,
+                audio_path,
+                voice,
+                scene_type=scene_type,
+                backend=backend,
+            )
+            return i, duration_s, word_timings
+        except Exception as exc:
+            logger.error("场景 %d TTS 失败（跳过）: %s", i, exc)
+            return None
 
     tasks = []
     for i, scene in enumerate(script.scenes):
@@ -249,7 +290,15 @@ async def _synthesize_all(
             tasks.append(_do_one(i, scene.type.value, scene.narration))
 
     results_list = await asyncio.gather(*tasks)
-    results_map: dict[int, tuple[float, list[dict]]] = {idx: (dur, wts) for idx, dur, wts in results_list}
+    failed_count = sum(1 for r in results_list if r is None)
+    if failed_count == len(tasks) and tasks:
+        raise RuntimeError(f"所有 {len(tasks)} 个场景的 TTS 合成均失败")
+    if failed_count > 0:
+        logger.warning("TTS: %d/%d 个场景合成失败", failed_count, len(tasks))
+
+    results_map: dict[int, tuple[float, list[dict]]] = {
+        r[0]: (r[1], r[2]) for r in results_list if r is not None
+    }
 
     all_timings: list[tuple[int, float, list[dict]]] = []
     cumulative_s = 0.0

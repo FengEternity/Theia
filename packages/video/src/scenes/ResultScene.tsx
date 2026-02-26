@@ -17,7 +17,7 @@ export const ResultScene: React.FC<{
   const theme = useTheme();
   const scene = resolveSceneStyle(theme, "result");
   const { datasets, metrics, findings, baselines } = data as unknown as ResultData & {
-    baselines?: Array<{ name: string; metric: string; value: number; highlight?: boolean }>;
+    baselines?: Array<{ name: string; metric: string; value: number | null; highlight?: boolean }>;
   };
 
   const headerOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
@@ -73,8 +73,8 @@ export const ResultScene: React.FC<{
         <div style={{ display: "flex", flexDirection: bodyDir, gap: s(isPortrait ? 30 : 50), flex: isPortrait ? undefined : 1, alignItems: "center" }}>
           {hasChart && (
             <div style={{ width: isPortrait ? "100%" : "58%", display: "flex", flexDirection: "column", justifyContent: "center", flexShrink: 0 }}>
-              {baselines && baselines.length > 0 ? (
-                <BarChart bars={baselines.map((b) => ({ label: b.name, value: b.value, highlight: b.highlight }))} unit={` ${baselines[0]?.metric ?? ""}`} delay={20} accentColor={theme.colors.primary} highlightColor={accentColor} />
+              {baselines && baselines.filter((b) => b.value != null).length > 0 ? (
+                <BarChart bars={baselines.filter((b) => b.value != null).map((b) => ({ label: b.name, value: b.value!, highlight: b.highlight }))} unit={` ${baselines[0]?.metric ?? ""}`} delay={20} accentColor={theme.colors.primary} highlightColor={accentColor} />
               ) : metricsRows.length <= 4 && metricsRows.every(([, v]) => v) ? (
                 <div style={{ display: "flex", gap: s(16), flexWrap: "wrap" as const, justifyContent: "center" }}>
                   {metricsRows.map(([metric, value], i) => (

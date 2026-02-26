@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from typing import Callable
 
 from pydantic import ValidationError
 
@@ -38,6 +39,7 @@ def _pass2_chunked_extract(
     api_key: str | None = None,
     api_base: str | None = None,
     chunk_chars: int = 6000,
+    on_token: Callable[[str], None] | None = None,
 ) -> PaperSummary:
     """分段提取：将论文按章节分段，逐段提取后融合。
 
@@ -79,6 +81,7 @@ def _pass2_chunked_extract(
                 max_retries=max_retries,
                 api_key=api_key,
                 api_base=api_base,
+                on_token=on_token,
             )
         except Exception as exc:
             logger.warning("章节 [%s] 提取异常，跳过: %s", label_zh, exc)
@@ -104,6 +107,7 @@ def _pass2_chunked_extract(
         max_retries=max_retries,
         api_key=api_key,
         api_base=api_base,
+        on_token=on_token,
     )
 
 
@@ -119,6 +123,7 @@ def _extract_single_section(
     max_retries: int,
     api_key: str | None = None,
     api_base: str | None = None,
+    on_token: Callable[[str], None] | None = None,
 ) -> dict | None:
     """对单个章节进行信息提取，返回结构化 dict。"""
     user_content = PASS2_SECTION_PROMPT.format(
@@ -140,7 +145,7 @@ def _extract_single_section(
                 kwargs["api_key"] = api_key
             if api_base:
                 kwargs["api_base"] = api_base
-            response = robust_completion(kwargs)
+            response = robust_completion(kwargs, on_token=on_token)
             raw = extract_json_from_response(response)
             return json.loads(raw)
         except (json.JSONDecodeError, ValueError) as exc:
@@ -185,6 +190,7 @@ def _merge_section_results(
     max_retries: int,
     api_key: str | None = None,
     api_base: str | None = None,
+    on_token: Callable[[str], None] | None = None,
 ) -> PaperSummary:
     """将多个章节的提取结果融合为完整的 PaperSummary。
 
@@ -216,7 +222,7 @@ def _merge_section_results(
                 kwargs["api_key"] = api_key
             if api_base:
                 kwargs["api_base"] = api_base
-            response = robust_completion(kwargs)
+            response = robust_completion(kwargs, on_token=on_token)
             raw = extract_json_from_response(response)
             data = json.loads(raw)
             return PaperSummary(**data)

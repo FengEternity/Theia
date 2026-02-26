@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Callable
 
 from ._extract_multi_pass import _extract_multi_pass
 from .schemas import PaperSummary
@@ -34,6 +35,7 @@ def extract_paper_summary(
     api_base: str | None = None,
     figure_api_key: str | None = None,
     figure_api_base: str | None = None,
+    on_token: Callable[[str], None] | None = None,
     **_kwargs,
 ) -> PaperSummary:
     """从论文 Markdown 中提取结构化信息（三遍渐进式提取）。
@@ -70,4 +72,5 @@ def extract_paper_summary(
         api_base=api_base,
         figure_api_key=figure_api_key,
         figure_api_base=figure_api_base,
+        on_token=on_token,
     )

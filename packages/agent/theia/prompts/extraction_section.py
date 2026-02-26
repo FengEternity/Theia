@@ -21,7 +21,7 @@ PASS2_SECTION_PROMPT = """\
   "datasets": ["数据集名称"],
   "metrics": ["含数字的指标描述"],
   "baselines": [
-    {{"name": "方法名", "metric": "指标名", "value": 0, "highlight": false}}
+    {{"name": "方法名", "metric": "指标名", "value": 0或null, "highlight": false}}
   ],
   "findings": "实验发现",
   "contributions": ["贡献"],
@@ -32,7 +32,7 @@ PASS2_SECTION_PROMPT = """\
 指南：
 - 所有文本使用中文输出。
 - 只填写本章节中明确出现的信息，没有的字段留空字符串或空列表。
-- 数值指标只提取原文中出现的，不要编造。
+- 数值指标只提取原文中出现的，不要编造。value 必须是数字或 null（无明确数值时用 null，不要用字符串）。
 - section_summary 必须填写，简明扼要概括本章节核心内容。
 
 当前章节 [{section_label}] 内容：
@@ -63,8 +63,8 @@ PASS2_MERGE_PROMPT = """\
     "datasets": ["数据集"],
     "metrics": ["含数字的指标描述"],
     "baselines": [
-      {{"name": "对比方法名", "metric": "指标名", "value": 0}},
-      {{"name": "本文方法", "metric": "指标名", "value": 0, "highlight": true}}
+      {{"name": "对比方法名", "metric": "指标名", "value": 0或null}},
+      {{"name": "本文方法", "metric": "指标名", "value": 0或null, "highlight": true}}
     ],
     "findings": "关键实验发现的总结"
   }},

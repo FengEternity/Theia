@@ -64,6 +64,31 @@ def _sections_from_content_list(content_list: list[dict]) -> dict[str, str]:
     return {label: "\n\n".join(parts) for label, parts in labeled.items()}
 
 
+def _recover_full_title(title: str, original: str) -> str:
+    """尝试从原文中恢复完整标题。
+
+    当 LLM 截断了标题时，用提取标题的前缀在原文中搜索，
+    找到匹配行后返回完整标题。
+    """
+    original_lower = original.lower()
+    title_lower = title.lower().strip()
+
+    if title_lower[:30] in original_lower:
+        idx = original_lower.index(title_lower[:30])
+        end = original.find("\n", idx)
+        if end == -1:
+            end = min(idx + 300, len(original))
+        candidate = original[idx:end].strip()
+        if len(candidate) > len(title) and candidate.lower().startswith(title_lower[:20]):
+            logger.info("标题已从原文恢复: '%s' -> '%s'", title, candidate)
+            return candidate
+        return title
+
+    if len(title) > 10:
+        logger.warning("交叉验证警告：提取的标题可能不准确 '%s'", title)
+    return title
+
+
 def _synthesize(
     summary: PaperSummary,
     overview: PaperOverview,
@@ -86,9 +111,7 @@ def _synthesize(
         summary.key_insights = insights
 
     if summary.title:
-        title_prefix = summary.title.lower()[:30]
-        if title_prefix not in original.lower() and len(summary.title) > 10:
-            logger.warning("交叉验证警告：提取的标题可能不准确 '%s'", summary.title[:50])
+        summary.title = _recover_full_title(summary.title, original)
 
     for metric in summary.results.metrics:
         numbers = re.findall(r"\d+\.?\d*", metric)

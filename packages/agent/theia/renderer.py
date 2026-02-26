@@ -47,11 +47,30 @@ def _find_video_package(video_package_dir: Path | None = None) -> Path:
     )
 
 
-def _ensure_npx() -> str:
+def _find_remotion_cmd(video_dir: Path) -> list[str]:
+    """定位 Remotion CLI 可执行命令。
+
+    查找顺序:
+    1. video_dir/node_modules/.bin/remotion (本地安装，最可靠)
+    2. npx remotion (全局 npx)
+    3. pnpx remotion (全局 pnpx)
+    """
+    local_bin = video_dir / "node_modules" / ".bin" / "remotion"
+    if local_bin.exists():
+        return [str(local_bin)]
+
     npx = shutil.which("npx")
-    if not npx:
-        raise RuntimeError("未找到 npx，请安装 Node.js >= 18。")
-    return npx
+    if npx:
+        return [npx, "remotion"]
+
+    pnpx = shutil.which("pnpx")
+    if pnpx:
+        return [pnpx, "remotion"]
+
+    raise RuntimeError(
+        "未找到 Remotion CLI。请确保 packages/video 已运行 npm install，"
+        "或安装 Node.js >= 18（含 npm/npx）。"
+    )
 
 
 def render_video(
@@ -76,13 +95,22 @@ def render_video(
         渲染完成的视频文件路径。
     """
     video_dir = _find_video_package(video_package_dir)
-    npx = _ensure_npx()
+    remotion_cmd = _find_remotion_cmd(video_dir)
 
     output_path = Path(output_path).resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     public_dir = video_dir / "public"
     public_dir.mkdir(exist_ok=True)
+
+    for subdir in ("audio", "figures"):
+        d = public_dir / subdir
+        if d.exists():
+            shutil.rmtree(d)
+    for tmp in ("_render_props.json", "video_script.json"):
+        f = public_dir / tmp
+        if f.exists():
+            f.unlink()
 
     if workspace:
         _copy_audio_files(script, workspace, public_dir)
@@ -107,8 +135,7 @@ def render_video(
     gl_renderer = "angle" if platform.system() == "Darwin" else "swiftshader"
 
     cmd = [
-        npx,
-        "remotion",
+        *remotion_cmd,
         "render",
         "PaperVideo",
         str(output_path),
@@ -150,18 +177,17 @@ def render_video(
 
     logger.info("视频已渲染: %s", output_path)
 
-    _generate_thumbnail(video_dir, npx, output_path, props_file)
+    _generate_thumbnail(video_dir, remotion_cmd, output_path, props_file)
 
     return output_path
 
 
-def _generate_thumbnail(video_dir: Path, npx: str, video_path: Path, props_file: Path) -> None:
+def _generate_thumbnail(video_dir: Path, remotion_cmd: list[str], video_path: Path, props_file: Path) -> None:
     """渲染第 1 帧作为视频封面图。"""
     gl_renderer = "angle" if platform.system() == "Darwin" else "swiftshader"
     thumb_path = video_path.with_suffix(".png")
     cmd = [
-        npx,
-        "remotion",
+        *remotion_cmd,
         "still",
         "PaperVideo",
         str(thumb_path),

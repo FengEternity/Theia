@@ -81,8 +81,12 @@ class BaselineResult(BaseModel):
         if isinstance(v, (int, float)):
             return float(v)
         if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                return None
+            s = s.replace("%", "").replace(",", "").replace("％", "").strip()
             try:
-                return float(v)
+                return float(s)
             except ValueError:
                 return None
         return None

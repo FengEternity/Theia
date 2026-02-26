@@ -21,7 +21,7 @@ from typing_extensions import TypedDict
 
 from ._utils import extract_figures_from_markdown, pdf_stem
 from .cache import cache_key_for_content, cache_key_for_pdf, get_cached, set_cached
-from .llm_config import LLMConfig, detect_language
+from .llm.config import LLMConfig, detect_language
 from .schemas import VIDEO_PRESETS, PaperSummary, PipelineInput, ProgressCallback, StepInfo, VideoScript
 
 logger = logging.getLogger(__name__)
@@ -144,8 +144,8 @@ def _make_on_token(workspace: str, step_name: str) -> Callable[[str], None] | No
 
 def parse_node(state: PipelineState) -> dict:
     """节点 1: 解析输入内容（PDF 或网页文章）。"""
-    from .parser import ParseResult, parse_pdf
-    from .web_parser import is_article_url, parse_article
+    from .parsing.pdf import ParseResult, parse_pdf
+    from .parsing.web import is_article_url, parse_article
 
     pdf_input = state["pdf_path"]
     workspace = Path(state["workspace"])
@@ -232,7 +232,7 @@ def parse_node(state: PipelineState) -> dict:
 
 def extract_node(state: PipelineState) -> dict:
     """节点 2: 使用 LLM 提取论文信息。"""
-    from .extractor import extract_paper_summary
+    from .extraction.extractor import extract_paper_summary
 
     _notify(state, 2, "extract", "started", "使用 LLM 提取论文信息 (三遍阅读法)")
     logger.info("=" * 60)
@@ -311,7 +311,7 @@ def extract_node(state: PipelineState) -> dict:
     logger.info("已提取: '%s' by %s", summary.title, ", ".join(summary.authors[:3]))
 
     # --- 质量门控（作为提取流程的一部分） ---
-    from .quality_gate import run_quality_gate
+    from .quality.gate import run_quality_gate
 
     content_list_json_str = state.get("content_list_json")
     summary = run_quality_gate(
@@ -325,28 +325,45 @@ def extract_node(state: PipelineState) -> dict:
 
     _notify(state, 2, "extract", "completed", f"已提取: '{summary.title}'", progress_pct=100)
 
-    if state.get("interactive_mode"):
-        decision = interrupt(
-            {
-                "step": "extract",
-                "artifact_type": "paper_summary",
-                "data": json.loads(summary_json),
-                "message": "论文信息提取完成，请审核或编辑后继续",
-            }
-        )
-        action = decision.get("action", "approve") if isinstance(decision, dict) else "approve"
-        if action == "edit" and "data" in decision:
-            summary = PaperSummary(**decision["data"])
-            summary_json = summary.model_dump_json(indent=2)
-            out.write_text(summary_json, encoding="utf-8")
-            logger.info("用户已编辑提取结果")
-
     return {"paper_summary_json": summary_json}
+
+
+def review_extract_node(state: PipelineState) -> dict:
+    """交互审核节点：提取结果审核。
+
+    独立于 extract_node，避免 LangGraph resume 时重跑整个提取流程。
+    """
+    if not state.get("interactive_mode"):
+        return {}
+
+    summary_json = state["paper_summary_json"]
+    decision = interrupt(
+        {
+            "step": "extract",
+            "artifact_type": "paper_summary",
+            "data": json.loads(summary_json),
+            "message": "论文信息提取完成，请审核或编辑后继续",
+        }
+    )
+    action = decision.get("action", "approve") if isinstance(decision, dict) else "approve"
+    if action == "edit" and "data" in decision:
+        summary = PaperSummary(**decision["data"])
+        summary_json = summary.model_dump_json(indent=2)
+
+        workspace = Path(state["workspace"])
+        stem = pdf_stem(state["pdf_path"])
+        out = workspace / "scripts" / f"{stem}_summary.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(summary_json, encoding="utf-8")
+        logger.info("用户已编辑提取结果")
+        return {"paper_summary_json": summary_json}
+
+    return {}
 
 
 def script_node(state: PipelineState) -> dict:
     """节点 3: 生成视频脚本。"""
-    from .scriptwriter import generate_video_script
+    from .output.scriptwriter import generate_video_script
 
     _notify(state, 3, "script", "started", "生成视频脚本")
     logger.info("=" * 60)
@@ -479,31 +496,45 @@ def script_node(state: PipelineState) -> dict:
         progress_pct=100,
     )
 
-    if state.get("interactive_mode"):
-        decision = interrupt(
-            {
-                "step": "script",
-                "artifact_type": "video_script",
-                "data": json.loads(script_json_str),
-                "message": "视频脚本生成完成，请审核旁白和场景后继续",
-            }
-        )
-        action = decision.get("action", "approve") if isinstance(decision, dict) else "approve"
-        if action == "edit" and "data" in decision:
-            script = VideoScript(**decision["data"])
-            script_json_str = script.model_dump_json()
-            script_out.write_text(
-                json.dumps(script.model_dump(mode="json"), ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-            logger.info("用户已编辑视频脚本")
-
     return {"video_script_json": script_json_str}
+
+
+def review_script_node(state: PipelineState) -> dict:
+    """交互审核节点：脚本审核。"""
+    if not state.get("interactive_mode"):
+        return {}
+
+    script_json_str = state["video_script_json"]
+    decision = interrupt(
+        {
+            "step": "script",
+            "artifact_type": "video_script",
+            "data": json.loads(script_json_str),
+            "message": "视频脚本生成完成，请审核旁白和场景后继续",
+        }
+    )
+    action = decision.get("action", "approve") if isinstance(decision, dict) else "approve"
+    if action == "edit" and "data" in decision:
+        script = VideoScript(**decision["data"])
+        script_json_str = script.model_dump_json()
+
+        workspace = Path(state["workspace"])
+        stem = pdf_stem(state["pdf_path"])
+        script_out = workspace / "scripts" / f"{stem}_script.json"
+        script_out.parent.mkdir(parents=True, exist_ok=True)
+        script_out.write_text(
+            json.dumps(script.model_dump(mode="json"), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        logger.info("用户已编辑视频脚本")
+        return {"video_script_json": script_json_str}
+
+    return {}
 
 
 def tts_node(state: PipelineState) -> dict:
     """节点 4: 合成旁白语音。"""
-    from .tts import synthesize_narration
+    from .output.tts import synthesize_narration
 
     if state.get("skip_tts"):
         logger.info("步骤 4/5: TTS 已跳过")
@@ -540,23 +571,30 @@ def tts_node(state: PipelineState) -> dict:
 
     _notify(state, 4, "tts", "completed", "语音合成完成", progress_pct=100)
 
-    if state.get("interactive_mode"):
-        audio_files = [s.audio_file for s in script.scenes if s.audio_file]
-        interrupt(
-            {
-                "step": "tts",
-                "artifact_type": "audio",
-                "data": {"audio_files": audio_files, "scene_count": len(script.scenes)},
-                "message": "语音合成完成，请试听后继续渲染",
-            }
-        )
-
     return {"video_script_json": script.model_dump_json()}
+
+
+def review_tts_node(state: PipelineState) -> dict:
+    """交互审核节点：TTS 试听。"""
+    if not state.get("interactive_mode"):
+        return {}
+
+    script = VideoScript.model_validate_json(state["video_script_json"])
+    audio_files = [s.audio_file for s in script.scenes if s.audio_file]
+    interrupt(
+        {
+            "step": "tts",
+            "artifact_type": "audio",
+            "data": {"audio_files": audio_files, "scene_count": len(script.scenes)},
+            "message": "语音合成完成，请试听后继续渲染",
+        }
+    )
+    return {}
 
 
 def render_node(state: PipelineState) -> dict:
     """节点 5: 使用 Remotion 渲染视频。"""
-    from .renderer import render_video
+    from .output.renderer import render_video
 
     if state.get("skip_render"):
         logger.info("步骤 5/5: 渲染已跳过")
@@ -594,13 +632,13 @@ def render_node(state: PipelineState) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def route_after_extract(state: PipelineState) -> Literal["script_node", "extract_node"]:
+def route_after_extract(state: PipelineState) -> Literal["review_extract_node", "extract_node"]:
     """提取后的质量门控。摘要过短时触发重新提取。"""
     summary_json = state.get("paper_summary_json", "")
     if len(summary_json) < 100:
         logger.warning("摘要过短，正在重新提取...")
         return "extract_node"
-    return "script_node"
+    return "review_extract_node"
 
 
 def route_tts_or_skip(state: PipelineState) -> Literal["tts_node", "render_node"]:
@@ -630,8 +668,11 @@ def build_graph(*, with_checkpointer: bool = False, interactive: bool = False) -
 
     builder.add_node("parse_node", parse_node)
     builder.add_node("extract_node", extract_node)
+    builder.add_node("review_extract_node", review_extract_node)
     builder.add_node("script_node", script_node)
+    builder.add_node("review_script_node", review_script_node)
     builder.add_node("tts_node", tts_node)
+    builder.add_node("review_tts_node", review_tts_node)
     builder.add_node("render_node", render_node)
 
     builder.add_edge(START, "parse_node")
@@ -640,11 +681,14 @@ def build_graph(*, with_checkpointer: bool = False, interactive: bool = False) -
     builder.add_conditional_edges(
         "extract_node",
         route_after_extract,
-        {"script_node": "script_node", "extract_node": "extract_node"},
+        {"review_extract_node": "review_extract_node", "extract_node": "extract_node"},
     )
 
-    builder.add_edge("script_node", "tts_node")
-    builder.add_edge("tts_node", "render_node")
+    builder.add_edge("review_extract_node", "script_node")
+    builder.add_edge("script_node", "review_script_node")
+    builder.add_edge("review_script_node", "tts_node")
+    builder.add_edge("tts_node", "review_tts_node")
+    builder.add_edge("review_tts_node", "render_node")
     builder.add_edge("render_node", END)
 
     use_checkpointer = with_checkpointer or interactive
@@ -661,6 +705,28 @@ _STEP_TO_NODE = {
     "render": "render_node",
 }
 
+_ALL_NODE_FUNCS = {
+    "parse_node": parse_node,
+    "extract_node": extract_node,
+    "review_extract_node": review_extract_node,
+    "script_node": script_node,
+    "review_script_node": review_script_node,
+    "tts_node": tts_node,
+    "review_tts_node": review_tts_node,
+    "render_node": render_node,
+}
+
+_STEP_CHAIN = [
+    "parse_node",
+    "extract_node",
+    "review_extract_node",
+    "script_node",
+    "review_script_node",
+    "tts_node",
+    "review_tts_node",
+    "render_node",
+]
+
 
 def build_partial_graph(start_step: str, *, interactive: bool = False) -> StateGraph:
     """构建从指定步骤开始的子图。
@@ -674,38 +740,28 @@ def build_partial_graph(start_step: str, *, interactive: bool = False) -> StateG
     if start_step not in _STEP_ORDER:
         raise ValueError(f"无效步骤: {start_step}，有效值: {_STEP_ORDER}")
 
-    start_idx = _STEP_ORDER.index(start_step)
-    steps = _STEP_ORDER[start_idx:]
-
-    node_funcs = {
-        "parse_node": parse_node,
-        "extract_node": extract_node,
-        "script_node": script_node,
-        "tts_node": tts_node,
-        "render_node": render_node,
-    }
+    first_node = _STEP_TO_NODE[start_step]
+    start_idx = _STEP_CHAIN.index(first_node)
+    chain = _STEP_CHAIN[start_idx:]
 
     builder = StateGraph(PipelineState)
-    for step in steps:
-        node_name = _STEP_TO_NODE[step]
-        builder.add_node(node_name, node_funcs[node_name])
+    for node_name in chain:
+        builder.add_node(node_name, _ALL_NODE_FUNCS[node_name])
 
-    first_node = _STEP_TO_NODE[steps[0]]
-    builder.add_edge(START, first_node)
+    builder.add_edge(START, chain[0])
 
-    for i in range(len(steps) - 1):
-        src = _STEP_TO_NODE[steps[i]]
-        dst = _STEP_TO_NODE[steps[i + 1]]
-        if src == "extract_node" and dst == "script_node":
+    for i in range(len(chain) - 1):
+        src, dst = chain[i], chain[i + 1]
+        if src == "extract_node" and dst == "review_extract_node":
             builder.add_conditional_edges(
                 src,
                 route_after_extract,
-                {"script_node": dst, "extract_node": src},
+                {"review_extract_node": dst, "extract_node": src},
             )
         else:
             builder.add_edge(src, dst)
 
-    builder.add_edge(_STEP_TO_NODE[steps[-1]], END)
+    builder.add_edge(chain[-1], END)
     checkpointer = InMemorySaver() if interactive else None
     return builder.compile(checkpointer=checkpointer)
 

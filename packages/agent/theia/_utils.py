@@ -14,7 +14,7 @@ def pdf_stem(pdf_input: str) -> str:
     生成稳定的短标识符。
     """
     if pdf_input.startswith("http://") or pdf_input.startswith("https://"):
-        from .web_parser import article_stem, is_article_url
+        from .parsing.web import article_stem, is_article_url
 
         if is_article_url(pdf_input):
             return article_stem(pdf_input)

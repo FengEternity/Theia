@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Download, Edit, Plus, RefreshRight, Star, ZoomIn } from '@element-plus/icons-vue'
 import MarkdownIt from 'markdown-it'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
 import {
   getTask, getTaskLogs, getVideoUrl, getEventSourceUrl, cancelTask, retryTask,
   getTaskScript, getTaskMarkdown, getTaskSummary, getTaskFigures,
@@ -15,6 +17,14 @@ import ArtifactEditor from '@/components/ArtifactEditor.vue'
 import StepActions from '@/components/StepActions.vue'
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: true })
+
+function renderLatex(latex: string): string {
+  try {
+    return katex.renderToString(latex, { displayMode: true, throwOnError: false, output: 'html' })
+  } catch {
+    return latex
+  }
+}
 
 const props = defineProps<{ id: string }>()
 const router = useRouter()
@@ -748,7 +758,7 @@ onUnmounted(() => {
                   <li v-for="(s, i) in summaryData.method.key_steps" :key="i">{{ s }}</li>
                 </ul>
                 <div v-if="summaryData.method.formulas?.length" class="formula-list">
-                  <code v-for="(f, i) in summaryData.method.formulas" :key="i" class="formula-item">{{ f }}</code>
+                  <div v-for="(f, i) in summaryData.method.formulas" :key="i" class="formula-item" v-html="renderLatex(f)" />
                 </div>
               </div>
 
@@ -1491,12 +1501,9 @@ onUnmounted(() => {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
-  padding: 8px 12px;
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 12px;
-  color: #475569;
+  padding: 12px 16px;
   overflow-x: auto;
-  white-space: nowrap;
+  text-align: center;
 }
 
 .baselines-table {

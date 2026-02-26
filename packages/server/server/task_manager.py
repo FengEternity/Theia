@@ -245,7 +245,7 @@ class TaskManager:
         if parsed.scheme not in ("http", "https"):
             raise ValueError("仅支持 http/https 链接")
 
-        from theia.web_parser import is_article_url
+        from theia.parsing.web import is_article_url
 
         if is_article_url(url):
             return self._create_task_from_article(url, config, user_id=user_id)
@@ -276,7 +276,7 @@ class TaskManager:
         将 URL 存储为标记文件（``input/article_url.txt``），
         流水线的 ``parse_node`` 会自动检测并使用 ``web_parser``。
         """
-        from theia.web_parser import article_stem
+        from theia.parsing.web import article_stem
 
         task_id = uuid.uuid4().hex[:12]
         stem = article_stem(url)
@@ -391,7 +391,7 @@ class TaskManager:
         cancel_event: threading.Event,
         progress_cb: _TaskProgressCallback,
     ) -> None:
-        from theia.llm_config import LLMConfig
+        from theia.llm.config import LLMConfig
         from theia.pipeline import build_graph, register_progress_callback, unregister_progress_callback
         from theia.schemas import PipelineInput
 
@@ -759,7 +759,7 @@ class TaskManager:
             return None
 
         if article_url:
-            from theia.web_parser import article_stem
+            from theia.parsing.web import article_stem
 
             stem = article_stem(article_url)
             state: dict = {
@@ -863,8 +863,8 @@ class TaskManager:
 
         core_idea = summary_json.get("core_idea", "")
 
-        from theia.figure_analyzer import reanalyze_single_figure
-        from theia.llm_config import LLMConfig
+        from theia.extraction.figure_analyzer import reanalyze_single_figure
+        from theia.llm.config import LLMConfig
 
         llm_cfg = LLMConfig()
         try:
@@ -922,8 +922,8 @@ class TaskManager:
         core_idea = summary_json.get("core_idea", "")
 
         from theia._utils import extract_figures_from_markdown
-        from theia.figure_analyzer import analyze_figures
-        from theia.llm_config import LLMConfig
+        from theia.extraction.figure_analyzer import analyze_figures
+        from theia.llm.config import LLMConfig
         from theia.schemas import PaperOverview
 
         raw_figures = extract_figures_from_markdown(markdown_content)
@@ -1091,7 +1091,7 @@ class TaskManager:
 
         url_file = input_dir / "article_url.txt"
         if url_file.exists():
-            from theia.web_parser import article_stem
+            from theia.parsing.web import article_stem
 
             url = url_file.read_text(encoding="utf-8").strip()
             return article_stem(url) if url else None
@@ -1399,7 +1399,7 @@ class TaskManager:
         progress_cb: _TaskProgressCallback,
     ) -> None:
         """交互执行模式：遇到 interrupt 时暂停，等待用户审核。"""
-        from theia.llm_config import LLMConfig
+        from theia.llm.config import LLMConfig
         from theia.pipeline import build_graph
         from theia.schemas import PipelineInput
 

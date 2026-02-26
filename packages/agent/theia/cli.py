@@ -134,7 +134,7 @@ def parse(pdf_path: Path, output_dir: Path, lang: str, backend: str, verbose: bo
     """仅解析 PDF，不运行完整流水线。"""
     _setup_logging(verbose)
 
-    from .parser import parse_pdf
+    from .parsing.pdf import parse_pdf
 
     result = parse_pdf(pdf_path, output_dir, lang=lang, backend=backend)
     click.echo(f"Markdown: {len(result.markdown)} 字符")
@@ -160,8 +160,8 @@ def extract(
     """解析 PDF 并提取论文摘要（不生成视频）。"""
     _setup_logging(verbose)
 
-    from .extractor import extract_paper_summary
-    from .parser import parse_pdf
+    from .extraction.extractor import extract_paper_summary
+    from .parsing.pdf import parse_pdf
 
     result = parse_pdf(pdf_path, workspace / "parsed", backend=backend)
     summary = extract_paper_summary(

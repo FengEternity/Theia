@@ -6,7 +6,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ---------------------------------------------------------------------------
 # 进度回调协议
@@ -35,6 +35,15 @@ class ProgressCallback(Protocol):
 
     def on_step(self, info: StepInfo) -> None: ...
 
+    def on_token(self, step_name: str, token: str) -> None:
+        """LLM 流式输出的 token 片段回调。
+
+        参数:
+            step_name: 当前步骤标识 (如 ``pass1``, ``pass2``, ``script``)。
+            token: 本次输出的文本片段。
+        """
+        ...
+
 
 # ---------------------------------------------------------------------------
 # 论文摘要（LLM 提取输出）
@@ -61,8 +70,22 @@ class MethodDetail(BaseModel):
 class BaselineResult(BaseModel):
     name: str
     metric: str
-    value: float
+    value: float | None = None
     highlight: bool = False
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def _coerce_value(cls, v: object) -> float | None:
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return float(v)
+        if isinstance(v, str):
+            try:
+                return float(v)
+            except ValueError:
+                return None
+        return None
 
 
 class ResultDetail(BaseModel):

@@ -37,6 +37,8 @@ export interface TaskEvent {
   message: string
   video_path: string | null
   error: string | null
+  token_delta?: string
+  token_step?: string
 }
 
 export interface TaskLogItem {

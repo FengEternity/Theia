@@ -158,6 +158,8 @@ class TaskEvent(BaseModel):
     message: str = ""
     video_path: str | None = None
     error: str | None = None
+    token_delta: str | None = None
+    token_step: str | None = None
 
 
 class TaskLogResponse(BaseModel):

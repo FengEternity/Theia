@@ -12,6 +12,7 @@ import os
 import re
 import threading
 import time as _time
+from typing import Callable
 
 import litellm
 
@@ -54,7 +55,12 @@ def _throttle_release() -> None:
     _semaphore.release()
 
 
-def robust_completion(kwargs: dict, *, max_retries: int = 3):
+def robust_completion(
+    kwargs: dict,
+    *,
+    max_retries: int = 3,
+    on_token: Callable[[str], None] | None = None,
+):
     """调用 LLM completion，带参数降级、API 故障转移和自适应恢复。
 
     调用策略：
@@ -62,6 +68,11 @@ def robust_completion(kwargs: dict, *, max_retries: int = 3):
     2. 推理模型遇到 400 时自动移除 temperature / response_format 重试
     3. 主 API 不可用（503/超时等）时降级到备选 API
     4. RecoveryStrategy 自适应重试（频率限制退避、输入截断等）
+
+    参数:
+        on_token: 流式回调。提供时启用 ``stream=True``，每收到一个
+                  token 片段就调用 ``on_token(text)``。函数仍返回完整
+                  的 ``ModelResponse``。
     """
     _ensure_direct_openai_kwargs(kwargs)
     _normalize_model_params(kwargs)
@@ -71,7 +82,9 @@ def robust_completion(kwargs: dict, *, max_retries: int = 3):
     while True:
         _throttle()
         try:
-            if kwargs.get("api_base"):
+            if on_token is not None:
+                result = _streaming_dispatch(kwargs, on_token)
+            elif kwargs.get("api_base"):
                 result = _direct_openai_completion(kwargs)
             else:
                 result = litellm.completion(**kwargs)
@@ -218,6 +231,81 @@ class RecoveryStrategy:
 # ---------------------------------------------------------------------------
 # 内部实现
 # ---------------------------------------------------------------------------
+
+
+def _streaming_dispatch(kwargs: dict, on_token: Callable[[str], None]):
+    """以流式模式调用 LLM，逐 token 触发回调，最终返回完整 ModelResponse。"""
+    if kwargs.get("api_base"):
+        return _direct_openai_streaming(kwargs, on_token)
+    return _litellm_streaming(kwargs, on_token)
+
+
+def _collect_stream(stream, on_token: Callable[[str], None]) -> str:
+    """遍历流式迭代器，收集完整内容并触发回调。"""
+    collected: list[str] = []
+    for chunk in stream:
+        choices = getattr(chunk, "choices", None) or []
+        if not choices:
+            continue
+        delta = choices[0].delta
+        text = getattr(delta, "content", None) or ""
+        if text:
+            collected.append(text)
+            try:
+                on_token(text)
+            except Exception:
+                pass
+    return "".join(collected)
+
+
+def _litellm_streaming(kwargs: dict, on_token: Callable[[str], None]):
+    """通过 litellm 进行流式调用。"""
+    stream_kwargs = dict(kwargs, stream=True)
+    stream = litellm.completion(**stream_kwargs)
+    content = _collect_stream(stream, on_token)
+    return _build_response_from_content(content, kwargs.get("model", ""))
+
+
+def _direct_openai_streaming(kwargs: dict, on_token: Callable[[str], None]):
+    """通过 openai 直连进行流式调用。"""
+    from openai import OpenAI
+
+    call_kwargs = {k: v for k, v in kwargs.items() if k not in ("api_base", "api_key", "model")}
+    api_base = kwargs["api_base"]
+    api_key = kwargs.get("api_key")
+    model = kwargs["model"]
+
+    if model.startswith("openai/"):
+        model = model[len("openai/"):]
+
+    extra_headers: dict[str, str] = {}
+    if "cognitiveservices.azure.com" in api_base or "azure.com" in api_base:
+        extra_headers["api-key"] = api_key or ""
+
+    client = OpenAI(
+        api_key=api_key,
+        base_url=api_base,
+        max_retries=1,
+        timeout=120,
+        default_headers=extra_headers or None,
+    )
+    stream = client.chat.completions.create(model=model, stream=True, **call_kwargs)
+    content = _collect_stream(stream, on_token)
+    return _build_response_from_content(content, model)
+
+
+def _build_response_from_content(content: str, model: str):
+    """从收集到的完整文本构造 ModelResponse。"""
+    return litellm.ModelResponse(
+        choices=[
+            litellm.Choices(
+                message=litellm.Message(content=content, role="assistant"),
+                index=0,
+                finish_reason="stop",
+            )
+        ],
+        model=model,
+    )
 
 
 def _direct_openai_completion(kwargs: dict):

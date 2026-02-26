@@ -40,6 +40,33 @@ const audioCount = ref(0)
 const lightboxSrc = ref('')
 const lightboxVisible = ref(false)
 
+// --- Streaming LLM output ---
+const streamingText = ref('')
+const streamingStep = ref('')
+const isStreaming = ref(false)
+const streamingContainer = ref<HTMLElement | null>(null)
+
+const STEP_STREAM_LABELS: Record<string, string> = {
+  extract: '信息提取',
+  pass1: '快速扫描',
+  pass2: '深度提取',
+  script: '脚本生成',
+  quality_gate: '质量优化',
+  figure: '图表分析',
+}
+
+const streamingStepLabel = computed(() =>
+  STEP_STREAM_LABELS[streamingStep.value] || streamingStep.value
+)
+
+watch(streamingText, () => {
+  nextTick(() => {
+    if (streamingContainer.value) {
+      streamingContainer.value.scrollTop = streamingContainer.value.scrollHeight
+    }
+  })
+})
+
 // --- Interactive mode ---
 const pendingReview = ref<PendingReview | null>(null)
 const showEditor = ref(false)
@@ -338,6 +365,14 @@ function connectSSE() {
   evtSource.onmessage = (e) => {
     try {
       const evt: TaskEvent = JSON.parse(e.data)
+
+      if (evt.token_delta) {
+        streamingText.value += evt.token_delta
+        streamingStep.value = evt.token_step || ''
+        isStreaming.value = true
+        return
+      }
+
       if (task.value) {
         const prevStage = task.value.stage
         task.value.stage = evt.stage
@@ -347,17 +382,24 @@ function connectSSE() {
         task.value.error = evt.error
         if (prevStage !== evt.stage) {
           trackStageChange(evt.stage)
+          streamingText.value = ''
+          streamingStep.value = ''
+          isStreaming.value = false
         }
       }
       if (evt.message) {
+        streamingText.value = ''
+        isStreaming.value = false
         const ts = new Date().toLocaleTimeString('zh-CN')
         eventLog.value.push(`[${ts}] ${evt.message}`)
         if (eventLog.value.length > 200) eventLog.value.shift()
       }
       if (evt.stage_label?.includes('等待审核')) {
+        isStreaming.value = false
         checkPendingReview()
       }
       if (evt.stage === 'completed' || evt.stage === 'failed') {
+        isStreaming.value = false
         pendingReview.value = null
         showEditor.value = false
         evtSource?.close()
@@ -633,6 +675,19 @@ onUnmounted(() => {
           <span class="progress-text">{{ progressPercent }}%</span>
         </div>
       </div>
+
+      <!-- AI 流式输出面板 -->
+      <transition name="expand">
+        <div v-if="isStreaming" class="panel streaming-panel" :key="'streaming'">
+          <div class="streaming-header">
+            <span class="streaming-dot" />
+            <span class="streaming-label">{{ streamingStepLabel }} — AI 输出中</span>
+          </div>
+          <div ref="streamingContainer" class="streaming-content">
+            <pre class="streaming-text">{{ streamingText }}<span class="streaming-cursor">|</span></pre>
+          </div>
+        </div>
+      </transition>
 
       <!-- 展开面板 -->
       <transition name="expand">
@@ -1979,6 +2034,63 @@ onUnmounted(() => {
 
 .lightbox-close:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* ===== Streaming Panel ===== */
+.streaming-panel {
+  border: 1px solid #c7d2fe;
+  background: #fafaff;
+}
+
+.streaming-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.streaming-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6366f1;
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+.streaming-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4f46e5;
+}
+
+.streaming-content {
+  max-height: 340px;
+  overflow-y: auto;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.streaming-text {
+  font-family: 'SF Mono', 'Fira Code', 'Menlo', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #334155;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.streaming-cursor {
+  color: #6366f1;
+  font-weight: 700;
+  animation: cursor-blink 0.8s step-end infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 /* Responsive */

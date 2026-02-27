@@ -279,7 +279,9 @@ def _copy_figure_files(
     for scene in script.scenes:
         # figure 专属场景的 figurePath
         fp = scene.data.get("figurePath", "")
-        if fp:
+        if isinstance(fp, dict):
+            fp = fp.get("path", fp.get("figurePath", ""))
+        if isinstance(fp, str) and fp:
             resolved = _resolve_and_copy(fp)
             if resolved:
                 scene.data["figurePath"] = resolved
@@ -288,6 +290,10 @@ def _copy_figure_files(
         fig_paths = scene.data.get("figures", [])
         updated_paths: list[str] = []
         for fig_path in fig_paths:
+            if isinstance(fig_path, dict):
+                fig_path = fig_path.get("path", fig_path.get("figurePath", ""))
+            if not isinstance(fig_path, str) or not fig_path:
+                continue
             resolved = _resolve_and_copy(fig_path)
             if resolved:
                 updated_paths.append(resolved)
@@ -313,6 +319,17 @@ def _to_camel_case_dict(script: VideoScript) -> dict:
                 "data": s.data,
                 "wordTimings": [
                     {"text": wt.text, "offsetMs": wt.offset_ms, "durationMs": wt.duration_ms} for wt in s.word_timings
+                ],
+                "choreography": [
+                    {
+                        "startMs": p.start_ms,
+                        "endMs": p.end_ms,
+                        "attentionMode": p.attention_mode,
+                        "elementsToShow": p.elements_to_show,
+                        "highlightElement": p.highlight_element,
+                        "transitionType": p.transition_type,
+                    }
+                    for p in s.choreography
                 ],
             }
             for s in script.scenes

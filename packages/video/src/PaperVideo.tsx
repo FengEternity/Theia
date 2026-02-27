@@ -100,6 +100,9 @@ export const PaperVideo: React.FC<{ script: VideoScript }> = ({ script }) => {
                 <SceneComponent
                   data={scene.data}
                   durationInFrames={scene.durationInFrames}
+                  {...(scene.choreography && scene.choreography.length > 0
+                    ? { choreography: scene.choreography }
+                    : {})}
                 />
                 <SceneLabel
                   sceneType={scene.type}

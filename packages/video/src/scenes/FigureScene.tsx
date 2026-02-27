@@ -1,21 +1,33 @@
 import { Img, interpolate, useCurrentFrame, staticFile } from "remotion";
 import { DynamicBackground } from "../components/DynamicBackground";
+import { useChoreography } from "../hooks/useChoreography";
 import { useScale } from "../hooks/useScale";
 import { useTheme, resolveSceneStyle } from "../themes";
+import type { AnimationPhase } from "../types/script";
 
 export const FigureScene: React.FC<{
   data: Record<string, unknown>;
   durationInFrames: number;
-}> = ({ data, durationInFrames }) => {
+  choreography?: AnimationPhase[];
+}> = ({ data, durationInFrames, choreography }) => {
   const frame = useCurrentFrame();
   const { s, pad, isPortrait } = useScale();
   const theme = useTheme();
   const scene = resolveSceneStyle(theme, "figure");
+  const choreo = useChoreography(choreography);
   const { figurePath, caption, description } = data as { figurePath: string; caption: string; description: string };
 
-  const imgScale = interpolate(frame, [0, 30], [0.95, 1], { extrapolateRight: "clamp" });
-  const imgOpacity = interpolate(frame, [0, 30], [0, 1], { extrapolateRight: "clamp" });
-  const textOpacity = interpolate(frame, [20, 50], [0, 1], { extrapolateRight: "clamp" });
+  const imgScale = choreo.hasChoreography
+    ? (choreo.isElementVisible("image") ? interpolate(frame, [0, 30], [0.95, 1], { extrapolateRight: "clamp" }) : 0.95)
+    : interpolate(frame, [0, 30], [0.95, 1], { extrapolateRight: "clamp" });
+  const imgOpacity = choreo.hasChoreography
+    ? (choreo.isElementVisible("image") ? interpolate(frame, [0, 30], [0, 1], { extrapolateRight: "clamp" }) : 0)
+    : interpolate(frame, [0, 30], [0, 1], { extrapolateRight: "clamp" });
+  const textOpacity = choreo.hasChoreography
+    ? (choreo.isElementVisible("caption") || choreo.isElementVisible("description")
+      ? interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" })
+      : 0)
+    : interpolate(frame, [20, 50], [0, 1], { extrapolateRight: "clamp" });
 
   const imgSrc = figurePath ? staticFile(figurePath.startsWith("figures/") ? figurePath : `figures/${figurePath}`) : "";
   const hasText = (caption || "").length > 0 || (description || "").length > 0;

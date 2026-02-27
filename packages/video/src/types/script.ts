@@ -73,6 +73,16 @@ export const WordTiming = z.object({
 });
 export type WordTiming = z.infer<typeof WordTiming>;
 
+export const AnimationPhase = z.object({
+  startMs: z.number(),
+  endMs: z.number(),
+  attentionMode: z.string().default("synced"),
+  elementsToShow: z.array(z.string()).default([]),
+  highlightElement: z.string().nullable().default(null),
+  transitionType: z.string().default("fade_in"),
+});
+export type AnimationPhase = z.infer<typeof AnimationPhase>;
+
 export const Scene = z.object({
   type: SceneType,
   durationInFrames: z.number().int().positive(),
@@ -80,6 +90,7 @@ export const Scene = z.object({
   audioFile: z.string().nullable().default(null),
   data: z.record(z.string(), z.unknown()),
   wordTimings: z.array(WordTiming).default([]),
+  choreography: z.array(AnimationPhase).default([]),
 });
 export type Scene = z.infer<typeof Scene>;
 

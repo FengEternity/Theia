@@ -2,12 +2,25 @@ import "katex/dist/katex.min.css";
 import { interpolate, useCurrentFrame } from "remotion";
 import katex from "katex";
 import { DynamicBackground } from "../components/DynamicBackground";
+import { InlineLatex } from "../components/InlineLatex";
+import { useChoreography } from "../hooks/useChoreography";
 import { useScale } from "../hooks/useScale";
 import { useTheme, resolveSceneStyle } from "../themes";
+import type { AnimationPhase } from "../types/script";
+
+function cleanLatex(latex: string): string {
+  let s = latex.trim();
+  if (s.startsWith("\\[")) s = s.slice(2);
+  if (s.endsWith("\\]")) s = s.slice(0, -2);
+  if (s.startsWith("$$")) s = s.slice(2);
+  if (s.endsWith("$$")) s = s.slice(0, -2);
+  return s.trim();
+}
 
 function renderKatex(latex: string): { html: string; ok: boolean } {
   try {
-    return { html: katex.renderToString(latex, { displayMode: true, throwOnError: false, output: "html" }), ok: true };
+    const cleaned = cleanLatex(latex);
+    return { html: katex.renderToString(cleaned, { displayMode: true, throwOnError: false, output: "html" }), ok: true };
   } catch {
     return { html: latex, ok: false };
   }
@@ -32,11 +45,13 @@ function splitFormulaParts(formula: string): string[] {
 export const FormulaScene: React.FC<{
   data: Record<string, unknown>;
   durationInFrames: number;
-}> = ({ data, durationInFrames }) => {
+  choreography?: AnimationPhase[];
+}> = ({ data, durationInFrames, choreography }) => {
   const frame = useCurrentFrame();
   const { s, pad, isPortrait } = useScale();
   const theme = useTheme();
   const scene = resolveSceneStyle(theme, "formula");
+  const choreo = useChoreography(choreography);
   const { formula, explanation, title } = data as { formula: string; explanation: string; title: string };
 
   const parts = splitFormulaParts(formula || "");
@@ -50,8 +65,11 @@ export const FormulaScene: React.FC<{
   const step2Scale = isMultiStep
     ? interpolate(frame, [40, 70], [0.95, 1], { extrapolateRight: "clamp" })
     : 1;
-  const textDelay = isMultiStep ? 75 : 25;
-  const textOpacity = interpolate(frame, [textDelay, textDelay + 30], [0, 1], { extrapolateRight: "clamp" });
+  const defaultTextDelay = isMultiStep ? 75 : 25;
+  const textDelay = choreo.hasChoreography ? 0 : defaultTextDelay;
+  const textOpacity = choreo.hasChoreography
+    ? (choreo.isElementVisible("explanation") ? interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" }) : 0)
+    : interpolate(frame, [defaultTextDelay, defaultTextDelay + 30], [0, 1], { extrapolateRight: "clamp" });
 
   const currentFormula = isMultiStep && frame < 40 ? parts[0] : parts[parts.length - 1];
   const currentScale = isMultiStep && frame < 40 ? step1Scale : step2Scale;
@@ -104,7 +122,7 @@ export const FormulaScene: React.FC<{
         {hasExplanation && (
           <div style={{ maxWidth: isPortrait ? "95%" : undefined, flex: isPortrait ? undefined : 2, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: isPortrait ? "center" : "flex-start", opacity: textOpacity, transform: isPortrait ? `translateY(${interpolate(frame, [textDelay, textDelay + 30], [30, 0], { extrapolateRight: "clamp" })}px)` : `translateX(${interpolate(frame, [textDelay, textDelay + 30], [40, 0], { extrapolateRight: "clamp" })}px)` }}>
             <div style={{ width: s(50), height: s(4), background: `linear-gradient(90deg, ${formulaAccent}, ${theme.colors.primary})`, borderRadius: 2, marginBottom: s(28) }} />
-            <p style={{ color: scene.bodyTextColor, fontSize: explainFontSize, fontFamily: theme.fonts.body, lineHeight: 1.7, textAlign: isPortrait ? "center" as const : "left" as const }}>{explanation}</p>
+            <InlineLatex text={explanation} color={scene.bodyTextColor} fontSize={explainFontSize} fontFamily={theme.fonts.body} lineHeight={1.7} textAlign={isPortrait ? "center" : "left"} />
           </div>
         )}
       </div>

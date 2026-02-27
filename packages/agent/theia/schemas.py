@@ -166,6 +166,10 @@ class Scene(BaseModel):
     audio_file: str | None = Field(default=None, description="音频文件相对路径")
     data: dict[str, Any] = Field(default_factory=dict, description="场景特有的数据载荷")
     word_timings: list[WordTiming] = Field(default_factory=list, description="字级时间戳")
+    choreography: list[AnimationPhase] = Field(
+        default_factory=list,
+        description="视觉导演生成的动画编排阶段（空则使用组件默认时序）",
+    )
 
 
 VIDEO_PRESETS: dict[str, tuple[int, int]] = {
@@ -176,6 +180,114 @@ VIDEO_PRESETS: dict[str, tuple[int, int]] = {
     "xiaohongshu": (1080, 1440),
     "square": (1080, 1080),
 }
+
+
+# ---------------------------------------------------------------------------
+# 多 Agent 视频编排模型
+# ---------------------------------------------------------------------------
+
+
+class ScenePlan(BaseModel):
+    """故事架构师为单个场景生成的规划。"""
+
+    type: str = Field(description="场景类型，如 title/overview/method/formula/figure/result/conclusion")
+    target_duration_range: tuple[float, float] = Field(description="目标时长范围 (min_sec, max_sec)")
+    narrative_role: str = Field(
+        description="叙事角色: hook | build_up | climax | resolution | transition"
+    )
+    attention_strategy: str = Field(
+        default="synced",
+        description="该场景的主要注意力策略: voice_primary | visual_primary | synced",
+    )
+    key_moment: bool = Field(default=False, description="是否为全片关键信息点")
+    narration_word_range: tuple[int, int] = Field(
+        default=(50, 150),
+        description="旁白字数范围 (min_chars, max_chars)",
+    )
+
+
+class StoryBlueprint(BaseModel):
+    """故事架构师的完整输出：全片叙事规划。"""
+
+    narrative_arc: str = Field(description="一句话描述叙事弧线")
+    scenes: list[ScenePlan] = Field(description="有序场景规划列表")
+    total_target_duration: tuple[float, float] = Field(
+        default=(120.0, 240.0),
+        description="目标总时长范围 (min_sec, max_sec)",
+    )
+    key_moments: list[str] = Field(
+        default_factory=list,
+        description="全片 2-3 个最重要的信息点描述",
+    )
+
+
+class AttentionMarker(BaseModel):
+    """旁白文本中的注意力模式切换标注。"""
+
+    char_offset: int = Field(description="旁白文本中的字符位置")
+    mode_switch_to: str = Field(description="voice_primary | visual_primary | synced")
+    visual_hint: str = Field(
+        default="",
+        description="pause | reveal | highlight | dim_others",
+    )
+
+
+class SceneNarration(BaseModel):
+    """场景编剧为单个场景生成的旁白及标注。"""
+
+    scene_index: int = Field(description="对应 StoryBlueprint.scenes 的索引")
+    narration: str = Field(description="旁白文本")
+    data: dict[str, Any] = Field(default_factory=dict, description="场景特有的数据载荷")
+    attention_markers: list[AttentionMarker] = Field(
+        default_factory=list,
+        description="旁白中的注意力模式切换点",
+    )
+    pause_points: list[int] = Field(
+        default_factory=list,
+        description="旁白中需要自然停顿的字符位置",
+    )
+
+
+class AnimationPhase(BaseModel):
+    """视觉导演定义的单个动画阶段。"""
+
+    start_ms: int = Field(description="阶段开始时间（相对场景起点，毫秒）")
+    end_ms: int = Field(description="阶段结束时间（相对场景起点，毫秒）")
+    attention_mode: str = Field(
+        default="synced",
+        description="voice_primary | visual_primary | synced",
+    )
+    elements_to_show: list[str] = Field(
+        default_factory=list,
+        description="该阶段应可见的元素标识（如 'image', 'caption', 'step_0', 'formula'）",
+    )
+    highlight_element: str | None = Field(
+        default=None,
+        description="当前高亮元素标识",
+    )
+    transition_type: str = Field(
+        default="fade_in",
+        description="过渡动画类型: fade_in | slide_in | scale_in | none",
+    )
+
+
+class VisualChoreography(BaseModel):
+    """视觉导演为单个场景生成的完整动画编排。"""
+
+    scene_index: int = Field(description="对应场景索引")
+    phases: list[AnimationPhase] = Field(default_factory=list)
+
+
+class ReviewResult(BaseModel):
+    """节奏审核员的审核结果。"""
+
+    approved: bool = Field(description="是否通过审核")
+    revision_target: str = Field(
+        default="",
+        description="需要修改的目标: narration | choreography | both | (空=通过)",
+    )
+    issues: list[str] = Field(default_factory=list, description="发现的问题列表")
+    suggestions: list[str] = Field(default_factory=list, description="具体修改建议")
 
 
 class VideoMeta(BaseModel):

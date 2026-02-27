@@ -1,6 +1,7 @@
 import { Img, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
-import type { MethodData } from "../types/script";
+import type { MethodData, AnimationPhase } from "../types/script";
 import { DynamicBackground } from "../components/DynamicBackground";
+import { useChoreography } from "../hooks/useChoreography";
 import { useScale } from "../hooks/useScale";
 import { useTheme, resolveSceneStyle } from "../themes";
 import { getIcon } from "../utils/characterAssets";
@@ -8,12 +9,14 @@ import { getIcon } from "../utils/characterAssets";
 export const MethodScene: React.FC<{
   data: Record<string, unknown>;
   durationInFrames: number;
-}> = ({ data, durationInFrames }) => {
+  choreography?: AnimationPhase[];
+}> = ({ data, durationInFrames, choreography }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const { s, pad, isPortrait } = useScale();
   const theme = useTheme();
   const scene = resolveSceneStyle(theme, "method");
+  const choreo = useChoreography(choreography);
   const { summary, steps } = data as unknown as MethodData;
 
   const headerOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
@@ -51,11 +54,17 @@ export const MethodScene: React.FC<{
 
         <div style={{ display: "grid", gridTemplateColumns: useGrid ? "1fr 1fr" : "1fr", gap: `${s(18)}px ${s(40)}px`, alignContent: "start" }}>
           {steps?.map((step, i) => {
+            const stepId = `step_${i}`;
+            const isRevealed = choreo.hasChoreography ? choreo.isElementVisible(stepId) : true;
             const delay = 35 + i * 18;
-            const prog = spring({ frame: frame - delay, fps, config: { damping: 14 } });
+            const prog = choreo.hasChoreography
+              ? (isRevealed ? 1 : 0)
+              : spring({ frame: frame - delay, fps, config: { damping: 14 } });
             const highlightStart = delay + 10;
             const highlightEnd = highlightStart + Math.max(durationInFrames / stepCount - 18, 30);
-            const isActive = frame >= highlightStart && frame < highlightEnd;
+            const isActive = choreo.hasChoreography
+              ? choreo.isElementHighlighted(stepId)
+              : (frame >= highlightStart && frame < highlightEnd);
             const bgAlpha = isActive ? 0.12 : 0.04;
             const borderAlpha = isActive ? 0.4 : 0.1;
 

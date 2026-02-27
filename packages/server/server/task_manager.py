@@ -124,6 +124,22 @@ class _TaskProgressCallback:
         if stage and info.status == "started":
             self.mgr._update_stage(self.task_id, stage, info.message)
 
+        if info.status == "progress" and info.detail.get("agent_name"):
+            live = self.mgr._live.get(self.task_id)
+            if live and stage:
+                event = TaskEvent(
+                    stage=stage,
+                    progress=STAGE_PROGRESS.get(stage, 0),
+                    stage_label=STAGE_LABELS.get(stage, ""),
+                    message=info.message,
+                    token_step=info.detail["agent_name"],
+                )
+                for q in live.queues:
+                    try:
+                        q.put_nowait(event)
+                    except asyncio.QueueFull:
+                        pass
+
     def on_token(self, step_name: str, token: str) -> None:
         """LLM 流式 token 回调 — 将 token 片段推送到 SSE 客户端。"""
         live = self.mgr._live.get(self.task_id)

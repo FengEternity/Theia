@@ -47,7 +47,7 @@ export const OverviewScene: React.FC<{
             )}
             <span style={{ color: primaryColor, fontSize: s(24), fontWeight: 600, fontFamily: theme.fonts.title, textTransform: "uppercase" as const, letterSpacing: 3 }}>研究问题</span>
           </div>
-          <HighlightText text={problem} highlights={["注意力", "Transformer", "attention", "并行", "self-attention", "自注意力", "循环", "recurrent", "卷积", "convolutional"]} fontSize={problemFontSize} maxWidth={isPortrait ? 960 : hasContrib ? 820 : 1700} delay={10} />
+          <HighlightText text={problem} highlights={["注意力", "Transformer", "attention", "并行", "self-attention", "自注意力", "循环", "recurrent", "卷积", "convolutional"]} fontSize={problemFontSize} color={theme.colors.text} maxWidth={isPortrait ? 960 : hasContrib ? 820 : 1700} delay={10} />
         </div>
 
         {hasContrib && (

@@ -63,6 +63,10 @@ const STEP_STREAM_LABELS: Record<string, string> = {
   script: '脚本生成',
   quality_gate: '质量优化',
   figure: '图表分析',
+  story_architect: '故事架构师',
+  scene_writer: '场景编剧',
+  visual_director: '视觉导演',
+  pacing_reviewer: '节奏审核员',
 }
 
 const streamingStepLabel = computed(() =>
@@ -398,8 +402,15 @@ function connectSSE() {
         }
       }
       if (evt.message) {
-        streamingText.value = ''
-        isStreaming.value = false
+        const isAgentStep = evt.token_step && !evt.token_delta
+        if (isAgentStep) {
+          streamingStep.value = evt.token_step || ''
+          isStreaming.value = true
+          streamingText.value = evt.message
+        } else {
+          streamingText.value = ''
+          isStreaming.value = false
+        }
         const ts = new Date().toLocaleTimeString('zh-CN')
         eventLog.value.push(`[${ts}] ${evt.message}`)
         if (eventLog.value.length > 200) eventLog.value.shift()

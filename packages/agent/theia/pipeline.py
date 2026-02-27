@@ -362,12 +362,12 @@ def review_extract_node(state: PipelineState) -> dict:
 
 
 def script_node(state: PipelineState) -> dict:
-    """节点 3: 生成视频脚本。"""
+    """节点 3: 多 Agent 协作生成视频脚本。"""
     from .output.scriptwriter import generate_video_script
 
-    _notify(state, 3, "script", "started", "生成视频脚本")
+    _notify(state, 3, "script", "started", "多 Agent 协作生成视频脚本")
     logger.info("=" * 60)
-    logger.info("步骤 3/5: 生成视频脚本")
+    logger.info("步骤 3/5: 多 Agent 协作生成视频脚本")
     logger.info("=" * 60)
 
     summary = PaperSummary.model_validate_json(state["paper_summary_json"])
@@ -384,7 +384,7 @@ def script_node(state: PipelineState) -> dict:
     script_cache_key = (
         cache_key_for_content(
             state["paper_summary_json"],
-            "script",
+            "script_ma",
             lang,
             preset,
             theme,
@@ -399,6 +399,10 @@ def script_node(state: PipelineState) -> dict:
         script = get_cached(workspace, script_cache_key, VideoScript)
 
     if script is None:
+        def _on_agent_step(agent: str, message: str) -> None:
+            """将 Agent 步骤进度转发为 pipeline 进度通知。"""
+            _notify(state, 3, "script", "progress", message, agent_name=agent)
+
         script = generate_video_script(
             summary,
             model=model,
@@ -409,6 +413,7 @@ def script_node(state: PipelineState) -> dict:
             narration_style=narration_style,
             theme=theme,
             on_token=_make_on_token(workspace, "script"),
+            on_agent_step=_on_agent_step,
         )
 
     # 将提取的图片分配给场景
@@ -574,6 +579,46 @@ def tts_node(state: PipelineState) -> dict:
     return {"video_script_json": script.model_dump_json()}
 
 
+def visual_director_node(state: PipelineState) -> dict:
+    """节点 4.5: TTS 后运行视觉导演，用真实 word_timings 精细化动画编排。"""
+    script = VideoScript.model_validate_json(state["video_script_json"])
+
+    has_word_timings = any(s.word_timings for s in script.scenes)
+    if not has_word_timings:
+        logger.info("视觉导演: 无 word_timings，跳过精细编排")
+        return {}
+
+    from .output.visual_director import choreograph_scenes
+    from .schemas import SceneNarration
+    from .schemas_compat import _rebuild_blueprint_from_script
+
+    blueprint = _rebuild_blueprint_from_script(script)
+
+    narrations = [
+        SceneNarration(
+            scene_index=i,
+            narration=s.narration,
+            data=s.data,
+        )
+        for i, s in enumerate(script.scenes)
+    ]
+
+    scene_word_timings = [s.word_timings for s in script.scenes]
+    scene_durations_ms = [int(s.duration_in_frames / script.meta.fps * 1000) for s in script.scenes]
+
+    choreographies = choreograph_scenes(
+        blueprint, narrations, scene_word_timings, scene_durations_ms,
+    )
+
+    for choreo in choreographies:
+        if choreo.scene_index < len(script.scenes):
+            script.scenes[choreo.scene_index].choreography = choreo.phases
+
+    logger.info("视觉导演: 已用 word_timings 更新 %d 个场景的动画编排", len(choreographies))
+
+    return {"video_script_json": script.model_dump_json()}
+
+
 def review_tts_node(state: PipelineState) -> dict:
     """交互审核节点：TTS 试听。"""
     if not state.get("interactive_mode"):
@@ -672,6 +717,7 @@ def build_graph(*, with_checkpointer: bool = False, interactive: bool = False) -
     builder.add_node("script_node", script_node)
     builder.add_node("review_script_node", review_script_node)
     builder.add_node("tts_node", tts_node)
+    builder.add_node("visual_director_node", visual_director_node)
     builder.add_node("review_tts_node", review_tts_node)
     builder.add_node("render_node", render_node)
 
@@ -687,7 +733,8 @@ def build_graph(*, with_checkpointer: bool = False, interactive: bool = False) -
     builder.add_edge("review_extract_node", "script_node")
     builder.add_edge("script_node", "review_script_node")
     builder.add_edge("review_script_node", "tts_node")
-    builder.add_edge("tts_node", "review_tts_node")
+    builder.add_edge("tts_node", "visual_director_node")
+    builder.add_edge("visual_director_node", "review_tts_node")
     builder.add_edge("review_tts_node", "render_node")
     builder.add_edge("render_node", END)
 
@@ -712,6 +759,7 @@ _ALL_NODE_FUNCS = {
     "script_node": script_node,
     "review_script_node": review_script_node,
     "tts_node": tts_node,
+    "visual_director_node": visual_director_node,
     "review_tts_node": review_tts_node,
     "render_node": render_node,
 }
@@ -723,6 +771,7 @@ _STEP_CHAIN = [
     "script_node",
     "review_script_node",
     "tts_node",
+    "visual_director_node",
     "review_tts_node",
     "render_node",
 ]

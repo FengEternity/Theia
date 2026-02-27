@@ -14,7 +14,7 @@ type HighlightTextProps = {
  * 文本组件，自动高亮指定关键词。
  */
 export const HighlightText: React.FC<HighlightTextProps> = ({
-  text,
+  text = "",
   highlights = [],
   highlightColor = "#3b82f6",
   fontSize = 28,

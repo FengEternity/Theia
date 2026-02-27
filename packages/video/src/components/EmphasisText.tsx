@@ -95,6 +95,7 @@ function splitByKeywords(
   text: string,
   keywords: string[],
 ): Array<{ text: string; isKeyword: boolean }> {
+  if (!text) return [];
   if (keywords.length === 0) return [{ text, isKeyword: false }];
 
   const escaped = keywords.map((kw) => kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));

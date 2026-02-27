@@ -21,7 +21,7 @@ export const ResultScene: React.FC<{
   };
 
   const headerOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
-  const metricsRows = (metrics ?? []).map((m) => {
+  const metricsRows = (metrics ?? []).filter((m): m is string => typeof m === "string" && m.length > 0).map((m) => {
     const colonParts = m.split(/[:：]/);
     if (colonParts.length >= 2) return [colonParts[0].trim(), colonParts.slice(1).join(":").trim()];
     const eqParts = m.split(/\s*=\s*/);

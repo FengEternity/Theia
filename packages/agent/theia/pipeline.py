@@ -412,7 +412,7 @@ def script_node(state: PipelineState) -> dict:
             height=h,
             narration_style=narration_style,
             theme=theme,
-            on_token=_make_on_token(workspace, "script"),
+            on_token=_make_on_token(str(workspace), "script"),
             on_agent_step=_on_agent_step,
         )
 

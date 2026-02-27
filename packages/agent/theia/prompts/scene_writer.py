@@ -97,10 +97,20 @@ SCENE_WRITER_SYSTEM_PROMPT = """\
 
 **result 场景**：
 ```json
-{{"datasets": ["数据集1", "数据集2"], "metrics": ["BLEU: 28.4", "Accuracy: 95.1%"], "findings": "中文描述的关键发现"}}
+{{
+  "datasets": ["数据集1", "数据集2"],
+  "metrics": ["BLEU: 28.4", "Accuracy: 95.1%"],
+  "baselines": [
+    {{"name": "对比方法名", "metric": "指标名", "value": 28.4}},
+    {{"name": "本文方法", "metric": "指标名", "value": 41.8, "highlight": true}}
+  ],
+  "findings": "中文描述的关键发现"
+}}
 ```
 - `datasets`, `metrics`, `findings` 都是必填字段
-- metrics 数组中每个元素格式为 "指标名: 数值"
+- metrics 数组用于简要展示，格式为 "指标名: 数值"
+- baselines 是可选字段，用于生成柱状对比图。从论文摘要的 results.baselines 中直接复制
+- value 必须是数字或 null，highlight 为 true 表示本文方法
 
 **conclusion 场景**：
 ```json

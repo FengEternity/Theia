@@ -206,6 +206,15 @@ def generate_video_script(
         est_seconds = max(narration_seconds + visual_pause, min_floor)
         duration_frames = int(est_seconds * fps)
 
+        scene_data = narr.data
+
+        if scene_type_str == "result" and summary.results.baselines:
+            if "baselines" not in scene_data or not scene_data["baselines"]:
+                scene_data["baselines"] = [
+                    b.model_dump() for b in summary.results.baselines
+                ]
+                logger.info("result 场景: 从 PaperSummary 补充 %d 条 baselines", len(summary.results.baselines))
+
         choreo_phases = []
         if choreographies and i < len(choreographies):
             choreo_phases = choreographies[i].phases
@@ -216,7 +225,7 @@ def generate_video_script(
                 duration_in_frames=duration_frames,
                 narration=narr.narration,
                 audio_file=None,
-                data=narr.data,
+                data=scene_data,
                 choreography=choreo_phases,
             )
         )

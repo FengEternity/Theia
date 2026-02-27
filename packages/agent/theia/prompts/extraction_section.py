@@ -21,7 +21,7 @@ PASS2_SECTION_PROMPT = """\
   "datasets": ["数据集名称"],
   "metrics": ["含数字的指标描述"],
   "baselines": [
-    {{"name": "方法名", "metric": "指标名", "value": 0或null, "highlight": false}}
+    {{"name": "方法名", "metric": "指标名", "value": 0或null, "highlight": false, "dataset": "数据集名"}}
   ],
   "findings": "实验发现",
   "contributions": ["贡献"],
@@ -63,8 +63,8 @@ PASS2_MERGE_PROMPT = """\
     "datasets": ["数据集"],
     "metrics": ["含数字的指标描述"],
     "baselines": [
-      {{"name": "对比方法名", "metric": "指标名", "value": 0或null}},
-      {{"name": "本文方法", "metric": "指标名", "value": 0或null, "highlight": true}}
+      {{"name": "对比方法名", "metric": "指标名", "value": 0或null, "dataset": "数据集名"}},
+      {{"name": "本文方法", "metric": "指标名", "value": 0或null, "highlight": true, "dataset": "数据集名"}}
     ],
     "findings": "关键实验发现的总结"
   }},

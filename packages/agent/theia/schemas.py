@@ -72,6 +72,7 @@ class BaselineResult(BaseModel):
     metric: str
     value: float | None = None
     highlight: bool = False
+    dataset: str = Field(default="", description="所属数据集（可选，用于区分多数据集结果）")
 
     @field_validator("value", mode="before")
     @classmethod

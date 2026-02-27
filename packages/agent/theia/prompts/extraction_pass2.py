@@ -25,8 +25,8 @@ PASS2_PROMPT = """\
     "datasets": ["数据集1"],
     "metrics": ["包含实际数字的指标描述"],
     "baselines": [
-      {{"name": "对比方法名", "metric": "指标名", "value": 数字或null}},
-      {{"name": "本文方法", "metric": "指标名", "value": 数字或null, "highlight": true}}
+      {{"name": "对比方法名", "metric": "指标名", "value": 数字或null, "dataset": "数据集名"}},
+      {{"name": "本文方法", "metric": "指标名", "value": 数字或null, "highlight": true, "dataset": "数据集名"}}
     ],
     "findings": "总结关键实验发现，包括消融实验中的重要结论"
   }},
@@ -46,7 +46,7 @@ PASS2_PROMPT = """\
 - method.key_steps 至少 3-5 步，每步应自包含且信息丰富。
 - 包含论文中最重要的 1-3 个公式（LaTeX 格式）。无关键公式则留空。
 - 指标只提取论文中明确出现的数值，不要编造。
-- baselines 包含论文中的对比方法及性能数据，仅在论文中有对比时填写。value 必须是数字或 null（无明确数值时用 null，不要用字符串）。
+- baselines 包含论文中的对比方法及性能数据，仅在论文中有对比时填写。value 必须是数字或 null（无明确数值时用 null，不要用字符串）。多数据集时用 dataset 字段区分。
 - key_insights 是深度阅读的精华：方法为什么有效、与先前工作的根本区别、实验中的意外发现等。
 - figures 字段：提取论文中最关键的 2-5 张图片引用。path 填 Markdown 图片路径，caption 填图片标题。
 

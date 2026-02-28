@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
 
 
 def pdf_stem(pdf_input: str) -> str:
@@ -115,3 +119,90 @@ def _guess_scene_type(context: str) -> str:
         if kw in context:
             return "overview"
     return "method"
+
+
+# ---------------------------------------------------------------------------
+# HTML <table> → 结构化数据
+# ---------------------------------------------------------------------------
+
+class _TableHTMLParser(HTMLParser):
+    """解析 MinerU 输出的 <table> HTML，正确处理 colspan/rowspan。"""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._raw_rows: list[list[tuple[str, int, int]]] = []
+        self._current_row: list[tuple[str, int, int]] = []
+        self._current_cell: list[str] = []
+        self._in_cell = False
+        self._cell_colspan = 1
+        self._cell_rowspan = 1
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "tr":
+            self._current_row = []
+        elif tag in ("td", "th"):
+            self._in_cell = True
+            self._current_cell = []
+            self._cell_colspan = 1
+            self._cell_rowspan = 1
+            for attr_name, attr_val in attrs:
+                if attr_name == "colspan" and attr_val:
+                    try:
+                        self._cell_colspan = int(attr_val)
+                    except ValueError:
+                        pass
+                elif attr_name == "rowspan" and attr_val:
+                    try:
+                        self._cell_rowspan = int(attr_val)
+                    except ValueError:
+                        pass
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in ("td", "th"):
+            self._in_cell = False
+            text = "".join(self._current_cell).strip()
+            self._current_row.append((text, self._cell_colspan, self._cell_rowspan))
+        elif tag == "tr":
+            if self._current_row:
+                self._raw_rows.append(self._current_row)
+
+    def handle_data(self, data: str) -> None:
+        if self._in_cell:
+            self._current_cell.append(data)
+
+    def resolve_grid(self) -> list[list[str]]:
+        """将含 colspan/rowspan 的原始行展开为规则的二维网格。"""
+        if not self._raw_rows:
+            return []
+
+        max_cols = max(
+            sum(cs for _, cs, _ in row) for row in self._raw_rows
+        )
+        n_rows = len(self._raw_rows)
+
+        grid: list[list[str | None]] = [[None] * max_cols for _ in range(n_rows + 10)]
+
+        for row_idx, raw_row in enumerate(self._raw_rows):
+            col_cursor = 0
+            for text, colspan, rowspan in raw_row:
+                while col_cursor < max_cols and grid[row_idx][col_cursor] is not None:
+                    col_cursor += 1
+                for dr in range(rowspan):
+                    for dc in range(colspan):
+                        r, c = row_idx + dr, col_cursor + dc
+                        if r < len(grid) and c < max_cols:
+                            grid[r][c] = text
+                col_cursor += colspan
+
+        result: list[list[str]] = []
+        for row_idx in range(n_rows):
+            row = [cell if cell is not None else "" for cell in grid[row_idx][:max_cols]]
+            result.append(row)
+        return result
+
+
+def _parse_html_table(html: str) -> list[list[str]]:
+    """将 HTML <table> 解析为二维字符串数组，正确处理 colspan/rowspan。"""
+    parser = _TableHTMLParser()
+    parser.feed(html)
+    return parser.resolve_grid()

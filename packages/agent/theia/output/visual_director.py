@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 
+from ..scene_registry import get_templates
 from ..schemas import (
     AnimationPhase,
     ManimAnimationSpec,
@@ -22,36 +23,7 @@ from ..schemas import (
 
 logger = logging.getLogger(__name__)
 
-SCENE_TEMPLATES: dict[str, list[dict]] = {
-    "title": [
-        {"pct_start": 0.0, "pct_end": 1.0, "mode": "voice_primary", "elements": ["title", "authors", "year"], "transition": "fade_in"},
-    ],
-    "overview": [
-        {"pct_start": 0.0, "pct_end": 0.3, "mode": "voice_primary", "elements": ["problem"], "transition": "fade_in"},
-        {"pct_start": 0.3, "pct_end": 1.0, "mode": "synced", "elements": ["problem", "contributions"], "transition": "slide_in"},
-    ],
-    "method": [
-        {"pct_start": 0.0, "pct_end": 0.15, "mode": "voice_primary", "elements": ["summary"], "transition": "fade_in"},
-    ],
-    "formula": [
-        {"pct_start": 0.0, "pct_end": 0.12, "mode": "voice_primary", "elements": ["title"], "transition": "fade_in"},
-        {"pct_start": 0.12, "pct_end": 0.35, "mode": "visual_primary", "elements": ["title", "formula"], "transition": "scale_in"},
-        {"pct_start": 0.35, "pct_end": 1.0, "mode": "synced", "elements": ["title", "formula", "explanation"], "transition": "fade_in"},
-    ],
-    "figure": [
-        {"pct_start": 0.0, "pct_end": 0.2, "mode": "visual_primary", "elements": ["image"], "transition": "scale_in"},
-        {"pct_start": 0.2, "pct_end": 0.35, "mode": "visual_primary", "elements": ["image"], "transition": "none"},
-        {"pct_start": 0.35, "pct_end": 1.0, "mode": "synced", "elements": ["image", "caption", "description"], "transition": "fade_in"},
-    ],
-    "result": [
-        {"pct_start": 0.0, "pct_end": 0.15, "mode": "voice_primary", "elements": ["datasets"], "transition": "fade_in"},
-        {"pct_start": 0.15, "pct_end": 1.0, "mode": "synced", "elements": ["datasets", "metrics", "findings"], "transition": "slide_in"},
-    ],
-    "conclusion": [
-        {"pct_start": 0.0, "pct_end": 0.3, "mode": "voice_primary", "elements": ["conclusion"], "transition": "fade_in"},
-        {"pct_start": 0.3, "pct_end": 1.0, "mode": "synced", "elements": ["conclusion", "contributions"], "transition": "fade_in"},
-    ],
-}
+SCENE_TEMPLATES: dict[str, list[dict]] = get_templates()
 
 
 def choreograph_scenes(
@@ -154,6 +126,37 @@ def _assign_manim_for_scene(
                     position="right",
                 )
             )
+
+    elif scene_type == "comparison":
+        metrics = scene_data.get("columns", [])
+        if len(metrics) >= 2:
+            viz_code = _generate_metrics_chart_viz(
+                [{"name": col.get("name", ""), "value": 1.0} for col in metrics[:6]]
+            )
+            if viz_code:
+                specs.append(
+                    ManimAnimationSpec(
+                        type=ManimAnimationType.GEOMETRY,
+                        config={"geometry_commands": viz_code},
+                        duration_hint_sec=min(scene_sec * 0.7, 15.0),
+                        position="center",
+                    )
+                )
+
+    elif scene_type == "relationship":
+        nodes = scene_data.get("nodes", [])
+        edges = scene_data.get("edges", [])
+        if nodes and edges:
+            viz_code = _generate_relationship_viz(nodes, edges)
+            if viz_code:
+                specs.append(
+                    ManimAnimationSpec(
+                        type=ManimAnimationType.GEOMETRY,
+                        config={"geometry_commands": viz_code},
+                        duration_hint_sec=min(scene_sec * 0.8, 15.0),
+                        position="center",
+                    )
+                )
 
     elif scene_type == "result":
         metrics = scene_data.get("metrics", [])
@@ -707,6 +710,66 @@ def _generate_metrics_chart_viz(metrics: list) -> str | None:
     lines.append('bars.arrange(RIGHT, buff=0.5, aligned_edge=DOWN).move_to(DOWN*0.3)')
     lines.append('for bar in bars:')
     lines.append('    self.play(GrowFromEdge(bar[0], DOWN), Write(bar[1]), Write(bar[2]), run_time=0.4)')
+
+    return "\n".join(lines)
+
+
+def _generate_relationship_viz(nodes: list[dict], edges: list[dict]) -> str | None:
+    """为组件关系图生成 Manim 可视化代码。"""
+    if not nodes or len(nodes) < 2:
+        return None
+
+    n = min(len(nodes), 6)
+    node_labels = []
+    for node in nodes[:n]:
+        label = str(node.get("label", node.get("id", "")))[:20]
+        label = label.replace('"', '\\"')
+        node_labels.append(f'"{label}"')
+
+    edge_pairs = []
+    node_ids = [node.get("id", str(i)) for i, node in enumerate(nodes[:n])]
+    for edge in edges:
+        src = edge.get("from", "")
+        tgt = edge.get("to", "")
+        if src in node_ids and tgt in node_ids:
+            si = node_ids.index(src)
+            ti = node_ids.index(tgt)
+            if si < n and ti < n:
+                edge_label = str(edge.get("label", ""))[:15].replace('"', '\\"')
+                edge_pairs.append((si, ti, edge_label))
+
+    if not edge_pairs:
+        return None
+
+    labels_str = ", ".join(node_labels)
+    colors = ["BLUE", "GREEN", "YELLOW", "RED", "PURPLE", "TEAL"]
+
+    lines = [
+        f"labels = [{labels_str}]",
+        f"colors = [{', '.join(colors[:n])}]",
+        "boxes = VGroup()",
+        "",
+        "for i, (label, color) in enumerate(zip(labels, colors)):",
+        f"    box = RoundedRectangle(width=2.5, height=0.7, corner_radius=0.1, color=color, fill_opacity=0.3)",
+        "    text = Text(label, font_size=16, color=WHITE)",
+        "    if text.width > 2.0:",
+        "        text.scale_to_fit_width(2.0)",
+        "    text.move_to(box)",
+        "    boxes.add(VGroup(box, text))",
+        "",
+        f"boxes.arrange(DOWN, buff=0.5).move_to(ORIGIN)",
+        "",
+        "for box in boxes:",
+        "    self.play(FadeIn(box, shift=RIGHT * 0.3), run_time=0.3)",
+    ]
+
+    for si, ti, elabel in edge_pairs[:6]:
+        lines.append(f"arrow = Arrow(boxes[{si}].get_bottom(), boxes[{ti}].get_top(), color=GREY_B, buff=0.08, stroke_width=2)")
+        if elabel:
+            lines.append(f'elabel = Text("{elabel}", font_size=12, color=GREY_A).next_to(arrow, RIGHT, buff=0.05)')
+            lines.append("self.play(Create(arrow), Write(elabel), run_time=0.3)")
+        else:
+            lines.append("self.play(Create(arrow), run_time=0.3)")
 
     return "\n".join(lines)
 

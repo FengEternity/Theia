@@ -18,7 +18,10 @@ from .utils import (
 from ..llm.client import extract_json_from_response, robust_completion
 from ..prompts.extraction_section import PASS2_MERGE_PROMPT, PASS2_SECTION_PROMPT
 from ..schemas import (
+    Analogy,
     BaselineResult,
+    ComponentRelation,
+    KeyConcept,
     MethodDetail,
     PaperOverview,
     PaperSummary,
@@ -293,6 +296,61 @@ def _manual_merge(
     contributions = list(dict.fromkeys(contributions))
     key_insights = list(dict.fromkeys(key_insights))
 
+    seen_terms: set[str] = set()
+    merged_concepts: list[KeyConcept] = []
+    for r in section_results:
+        for kc in r.get("key_concepts", []):
+            term = (kc.get("term", "") if isinstance(kc, dict) else getattr(kc, "term", "") or "").strip().lower()
+            if term and term not in seen_terms:
+                try:
+                    seen_terms.add(term)
+                    merged_concepts.append(KeyConcept(**kc) if isinstance(kc, dict) else kc)
+                except Exception:
+                    pass
+
+    seen_analogy_concepts: set[str] = set()
+    merged_analogies: list[Analogy] = []
+    for r in section_results:
+        for a in r.get("analogies", []):
+            concept = (a.get("concept", "") if isinstance(a, dict) else getattr(a, "concept", "") or "").strip().lower()
+            if concept and concept not in seen_analogy_concepts:
+                try:
+                    seen_analogy_concepts.add(concept)
+                    merged_analogies.append(Analogy(**a) if isinstance(a, dict) else a)
+                except Exception:
+                    pass
+
+    merged_code_snippets: list[str] = [
+        cs for r in section_results for cs in r.get("code_snippets", [])
+        if isinstance(cs, str) and cs.strip()
+    ]
+
+    seen_takeaways: set[str] = set()
+    merged_takeaways: list[str] = []
+    for r in section_results:
+        for t in r.get("audience_takeaways", []):
+            if isinstance(t, str) and t.strip() and t not in seen_takeaways:
+                seen_takeaways.add(t)
+                merged_takeaways.append(t)
+
+    seen_relations: set[tuple[str, str]] = set()
+    all_relations: list[ComponentRelation] = []
+    for r in section_results:
+        method = r.get("method", {})
+        rels = method.get("component_relations", []) if isinstance(method, dict) else getattr(method, "component_relations", [])
+        for rel in rels:
+            if isinstance(rel, dict):
+                try:
+                    cr = ComponentRelation(**rel)
+                except Exception:
+                    continue
+            else:
+                cr = rel
+            key = (cr.source.lower(), cr.target.lower())
+            if key not in seen_relations:
+                seen_relations.add(key)
+                all_relations.append(cr)
+
     return PaperSummary(
         title=title or overview.core_idea,
         authors=authors,
@@ -302,6 +360,7 @@ def _manual_merge(
             summary=method_summary or overview.core_idea,
             key_steps=method_steps[:5],
             formulas=formulas[:3],
+            component_relations=all_relations,
         ),
         results=ResultDetail(
             datasets=datasets,
@@ -314,4 +373,8 @@ def _manual_merge(
         key_insights=key_insights,
         paper_type=overview.paper_type,
         core_idea=overview.core_idea,
+        key_concepts=merged_concepts,
+        analogies=merged_analogies,
+        code_snippets=merged_code_snippets,
+        audience_takeaways=merged_takeaways,
     )

@@ -970,7 +970,7 @@ class TaskManager:
         )
 
         llm_cfg = LLMConfig()
-        analyzed = analyze_figures(
+        analyzed, result_table_data = analyze_figures(
             raw_figures,
             images_dir,
             overview,

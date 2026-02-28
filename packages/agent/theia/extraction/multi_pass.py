@@ -13,7 +13,7 @@ from typing import Callable
 from pydantic import ValidationError
 
 from .sections import _pass2_chunked_extract
-from .synthesize import _sections_from_content_list, _synthesize
+from .synthesize import _sections_from_content_list, synthesize_with_figures
 from .utils import _estimate_tokens
 from ..quality.evaluator import ExtractionEvaluator
 from ..llm.client import extract_json_from_response, robust_completion
@@ -123,7 +123,7 @@ def _extract_multi_pass(
         if not raw_figures:
             logger.info("Pass 3 跳过: 未检测到图片引用")
             return None
-        return analyze_figures(
+        analyzed, result_table_data = analyze_figures(
             raw_figures,
             images_dir,
             overview,
@@ -132,6 +132,7 @@ def _extract_multi_pass(
             api_base=figure_api_base or api_base,
             on_token=on_token,
         )
+        return analyzed, result_table_data
 
     analyzed_figures = None
 
@@ -154,12 +155,48 @@ def _extract_multi_pass(
             except Exception as exc:
                 logger.warning("Pass 3 图表分析失败（不影响主流程）: %s", exc)
 
-    if analyzed_figures:
-        summary.figures = analyzed_figures
-        logger.info("Pass 3 完成: %d 张图表已分析", len(analyzed_figures))
+    result_table_data: list[dict] | None = None
+    if analyzed_figures is not None:
+        if isinstance(analyzed_figures, tuple):
+            figures, result_table_data = analyzed_figures
+        else:
+            figures = analyzed_figures
+        summary.figures = figures
+        logger.info(
+            "Pass 3 完成: %d 张图表已分析, %d 张结果图提取数值",
+            len(summary.figures),
+            len(result_table_data) if result_table_data else 0,
+        )
+
+    # --- 用 Table Analyst Agent 从 content_list 提取结构化表格数据 ---
+    if content_list:
+        from .table_analyst import analyze_tables
+
+        try:
+            cl_tables = analyze_tables(
+                content_list,
+                paper_title=summary.title,
+                model=scan_model,
+                api_key=scan_api_key or api_key,
+                api_base=scan_api_base or api_base,
+                on_token=on_token,
+            )
+        except Exception as exc:
+            logger.warning("Table Analyst Agent 失败: %s", exc)
+            cl_tables = []
+
+        if cl_tables:
+            logger.info("从 content_list 中提取到 %d 个结构化表格", len(cl_tables))
+            if result_table_data is None:
+                result_table_data = cl_tables
+            else:
+                existing_captions = {t.get("caption", "") for t in result_table_data}
+                for t in cl_tables:
+                    if t.get("caption", "") not in existing_captions:
+                        result_table_data.append(t)
 
     # --- 融合验证 ---
-    summary = _synthesize(summary, overview, markdown_content)
+    summary = synthesize_with_figures(summary, overview, markdown_content, result_table_data)
     logger.info(
         "融合完成: title='%s', key_steps=%d, formulas=%d, datasets=%d, baselines=%d",
         summary.title[:50] + "..." if summary.title and len(summary.title) > 50 else (summary.title or ""),

@@ -202,7 +202,7 @@ def _fill_missing_fields(
     api_base: str | None = None,
     on_token: Callable[[str], None] | None = None,
 ) -> PaperSummary:
-    """找到缺失字段，针对性补全。"""
+    """找到缺失字段，只让 LLM 返回缺失字段的 JSON。"""
     missing = []
     if not summary.title:
         missing.append("title")
@@ -230,15 +230,15 @@ def _fill_missing_fields(
 
     prompt = (
         f"以下论文摘要缺少这些字段: {missing}\n\n"
-        f"当前摘要:\n{json.dumps(summary.model_dump(), ensure_ascii=False, indent=2)}\n\n"
         f"论文原文片段:\n{truncated_md}\n\n"
-        "请仅补全缺失字段，返回完整的 JSON。保持已有字段不变。"
+        "请从原文中提取这些字段，**仅返回缺失字段的 JSON**（不要返回完整摘要）。\n"
+        "示例格式: {\"title\": \"...\", \"authors\": [\"...\"]}"
     )
 
     kwargs: dict[str, Any] = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 4096,
+        "max_tokens": 2048,
         "temperature": 0.1,
     }
     if api_key:
@@ -251,7 +251,14 @@ def _fill_missing_fields(
         raw = extract_json_from_response(resp)
         if raw:
             parsed = json.loads(raw) if isinstance(raw, str) else raw
-            return PaperSummary(**{**summary.model_dump(), **parsed})
+            merged = summary.model_dump()
+            for key, val in parsed.items():
+                if key in merged:
+                    if isinstance(merged[key], dict) and isinstance(val, dict):
+                        merged[key].update(val)
+                    else:
+                        merged[key] = val
+            return PaperSummary(**merged)
     except Exception as exc:
         logger.warning("字段补全失败: %s", exc)
 
@@ -382,55 +389,80 @@ def _improve_section_coverage(
     api_base: str | None = None,
     on_token: Callable[[str], None] | None = None,
 ) -> PaperSummary:
-    """补充章节覆盖不足的信息。"""
-    min_len = 100
-    gaps = []
-    if not summary.problem or len(summary.problem) < min_len:
-        gaps.append("problem（研究问题/动机，来自 Introduction，至少 3-5 句）")
-    if not summary.method.summary or len(summary.method.summary) < min_len:
-        gaps.append("method.summary（方法概要，来自 Method 章节，至少 3-5 句）")
-    if not summary.results.findings or len(summary.results.findings) < min_len:
-        gaps.append("results.findings（实验发现，来自 Experiments 章节，至少 3-5 句）")
-    if not summary.conclusion or len(summary.conclusion) < min_len:
-        gaps.append("conclusion（结论，来自 Conclusion 章节，至少 3-5 句）")
+    """补充章节覆盖不足的信息。
 
-    if not gaps:
+    只让 LLM 生成缺失字段的内容，再用规则回填，
+    避免要求返回完整 JSON 导致 token 溢出。
+    """
+    min_len = 100
+    gap_fields: list[tuple[str, str, str]] = []
+
+    if not summary.problem or len(summary.problem) < min_len:
+        gap_fields.append(("problem", "研究问题/动机（来自 Introduction，3-5 句中文）", summary.problem or ""))
+    if not summary.method.summary or len(summary.method.summary) < min_len:
+        gap_fields.append(("method.summary", "方法概要（来自 Method 章节，3-5 句中文）", summary.method.summary or ""))
+    if not summary.results.findings or len(summary.results.findings) < min_len:
+        gap_fields.append(("results.findings", "实验发现（来自 Experiments 章节，3-5 句中文）", summary.results.findings or ""))
+    if not summary.conclusion or len(summary.conclusion) < min_len:
+        gap_fields.append(("conclusion", "结论（来自 Conclusion 章节，3-5 句中文）", summary.conclusion or ""))
+
+    if not gap_fields:
         return summary
 
-    logger.info(
-        "章节覆盖修复: 发现 %d 个不足字段: %s",
-        len(gaps),
-        gaps,
-    )
+    logger.info("章节覆盖修复: 发现 %d 个不足字段: %s", len(gap_fields), [f[0] for f in gap_fields])
 
-    truncated_md = markdown[:20000] if len(markdown) > 20000 else markdown
+    labeled_sections = split_sections_with_labels(markdown)
 
-    prompt = (
-        "以下字段信息不足或缺失，请从论文原文中提取并补充:\n"
-        + "\n".join(f"- {g}" for g in gaps)
-        + f"\n\n论文原文:\n{truncated_md}\n\n"
-        f"当前摘要:\n{json.dumps(summary.model_dump(), ensure_ascii=False, indent=2)}\n\n"
-        "请补充缺失信息，返回完整的 JSON。保持已有内容不变。"
-    )
+    for field_key, description, current_val in gap_fields:
+        section_key = {
+            "problem": "introduction",
+            "method.summary": "method",
+            "results.findings": "experiments",
+            "conclusion": "conclusion",
+        }.get(field_key, "")
 
-    kwargs: dict[str, Any] = {
-        "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 4096,
-        "temperature": 0.1,
-    }
-    if api_key:
-        kwargs["api_key"] = api_key
-    if api_base:
-        kwargs["api_base"] = api_base
+        source_text = labeled_sections.get(section_key, "")
+        if not source_text:
+            source_text = markdown[:8000]
+        else:
+            source_text = source_text[:8000]
 
-    try:
-        resp = robust_completion(kwargs, on_token=on_token)
-        raw = extract_json_from_response(resp)
-        if raw:
-            parsed = json.loads(raw) if isinstance(raw, str) else raw
-            return PaperSummary(**{**summary.model_dump(), **parsed})
-    except Exception as exc:
-        logger.warning("章节覆盖修复失败: %s", exc)
+        prompt = (
+            f"从以下论文章节中提取 {description}。\n\n"
+            f"论文章节:\n{source_text}\n\n"
+        )
+        if current_val:
+            prompt += f"当前内容（信息不足，请扩展）:\n{current_val}\n\n"
+        prompt += "只返回该字段的文本内容（纯文本，不要 JSON 格式，不要字段名）。"
+
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 1024,
+            "temperature": 0.1,
+        }
+        if api_key:
+            kwargs["api_key"] = api_key
+        if api_base:
+            kwargs["api_base"] = api_base
+
+        try:
+            resp = robust_completion(kwargs, on_token=on_token)
+            content = resp.choices[0].message.content.strip() if resp.choices else ""
+            if not content or len(content) < 20:
+                continue
+
+            if field_key == "problem":
+                summary.problem = content
+            elif field_key == "method.summary":
+                summary.method.summary = content
+            elif field_key == "results.findings":
+                summary.results.findings = content
+            elif field_key == "conclusion":
+                summary.conclusion = content
+
+            logger.info("字段 %s 已修复 (%d → %d 字符)", field_key, len(current_val), len(content))
+        except Exception as exc:
+            logger.warning("章节覆盖修复 %s 失败: %s", field_key, exc)
 
     return summary

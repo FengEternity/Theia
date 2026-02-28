@@ -305,11 +305,44 @@ function trackStageChange(stage: TaskStage) {
 const SCENE_LABELS: Record<string, string> = {
   title: '标题', overview: '概述', method: '方法', formula: '公式',
   figure: '图表', result: '结果', conclusion: '结论',
+  concept: '概念', analogy: '类比', relationship: '关系',
+  demo: '演示', comparison: '对比', character_talk: '角色对话',
+  summary_card: '总结卡片', code_demo: '代码演示',
 }
 
 function sceneTypeLabel(type: string): string {
   return SCENE_LABELS[type] || type
 }
+
+interface BaselineItem {
+  name: string
+  metric: string
+  value: number | null
+  highlight: boolean
+  dataset: string
+}
+
+interface GroupedBaselines {
+  dataset: string
+  items: BaselineItem[]
+}
+
+const groupedBaselines = computed<GroupedBaselines[]>(() => {
+  const baselines: BaselineItem[] = summaryData.value?.results?.baselines || []
+  if (!baselines.length) return []
+
+  const groups = new Map<string, BaselineItem[]>()
+  for (const b of baselines) {
+    const ds = b.dataset || ''
+    if (!groups.has(ds)) groups.set(ds, [])
+    groups.get(ds)!.push(b)
+  }
+
+  return Array.from(groups.entries()).map(([dataset, items]) => ({
+    dataset: dataset || '未分类',
+    items,
+  }))
+})
 
 // --- Load stage data on expand ---
 async function toggleStep(stage: TaskStage) {
@@ -746,22 +779,29 @@ onUnmounted(() => {
           <template v-else-if="expandedStep === 'extracting'">
             <div class="expand-header">
               <h3>论文摘要</h3>
-              <span class="expand-hint">结构化信息提取</span>
+              <span class="expand-hint">结构化信息提取 — 下一阶段脚本生成将使用以下数据</span>
             </div>
             <div v-if="summaryData" class="summary-content">
+              <!-- 元信息 + 类型标签 -->
               <div class="summary-meta">
                 <h2 class="summary-title">{{ summaryData.title }}</h2>
                 <p v-if="summaryData.authors?.length" class="summary-authors">
                   {{ summaryData.authors.join(', ') }}
                   <span v-if="summaryData.year" class="summary-year">({{ summaryData.year }})</span>
                 </p>
+                <div class="summary-tags-inline" v-if="summaryData.paper_type || summaryData.core_idea">
+                  <span v-if="summaryData.paper_type" class="summary-tag">{{ summaryData.paper_type }}</span>
+                  <span v-if="summaryData.core_idea" class="summary-core-idea">{{ summaryData.core_idea }}</span>
+                </div>
               </div>
 
+              <!-- 研究问题 -->
               <div class="summary-section" v-if="summaryData.problem">
                 <h4>研究问题</h4>
                 <p>{{ summaryData.problem }}</p>
               </div>
 
+              <!-- 方法 -->
               <div class="summary-section" v-if="summaryData.method">
                 <h4>方法</h4>
                 <p>{{ summaryData.method.summary }}</p>
@@ -771,41 +811,89 @@ onUnmounted(() => {
                 <div v-if="summaryData.method.formulas?.length" class="formula-list">
                   <div v-for="(f, i) in summaryData.method.formulas" :key="i" class="formula-item" v-html="renderLatex(f)" />
                 </div>
+                <!-- 组件关系 -->
+                <div v-if="summaryData.method.component_relations?.length" class="component-relations">
+                  <strong>组件关系：</strong>
+                  <div class="relation-chips">
+                    <span v-for="(r, i) in summaryData.method.component_relations" :key="i" class="relation-chip">
+                      {{ r.source }} <span class="relation-arrow">→</span> {{ r.target }}
+                      <span class="relation-desc">{{ r.relation }}</span>
+                    </span>
+                  </div>
+                </div>
               </div>
 
+              <!-- 实验结果（按数据集分组） -->
               <div class="summary-section" v-if="summaryData.results">
                 <h4>实验结果</h4>
                 <p v-if="summaryData.results.datasets?.length">
                   <strong>数据集：</strong>{{ summaryData.results.datasets.join(', ') }}
                 </p>
-                <ul v-if="summaryData.results.metrics?.length">
-                  <li v-for="(m, i) in summaryData.results.metrics" :key="i">{{ m }}</li>
-                </ul>
-                <div v-if="summaryData.results.baselines?.length" class="baselines-table">
-                  <strong>对比方法：</strong>
-                  <table>
-                    <thead>
-                      <tr><th>方法</th><th>指标</th><th>数值</th></tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="(b, i) in summaryData.results.baselines" :key="i" :class="{ highlight: b.highlight }">
-                        <td>{{ b.name }}</td>
-                        <td>{{ b.metric }}</td>
-                        <td>{{ b.value }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div v-if="summaryData.results.metrics?.length" class="metrics-row">
+                  <span v-for="(m, i) in summaryData.results.metrics" :key="i" class="metric-chip">{{ m }}</span>
                 </div>
-                <p v-if="summaryData.results.findings">
+
+                <!-- 分组 baselines 表格 -->
+                <div v-if="groupedBaselines.length" class="baselines-grouped">
+                  <div v-for="(group, gi) in groupedBaselines" :key="gi" class="baseline-group">
+                    <div v-if="groupedBaselines.length > 1" class="baseline-group-header">{{ group.dataset }}</div>
+                    <table class="baselines-table">
+                      <thead>
+                        <tr><th>方法</th><th>指标</th><th>数值</th></tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(b, i) in group.items" :key="i" :class="{ highlight: b.highlight }">
+                          <td>
+                            {{ b.name }}
+                            <span v-if="b.highlight" class="proposed-badge">Ours</span>
+                          </td>
+                          <td>{{ b.metric }}</td>
+                          <td class="value-cell">{{ b.value }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <p v-if="summaryData.results.findings" class="findings-text">
                   <strong>发现：</strong>{{ summaryData.results.findings }}
                 </p>
               </div>
 
+              <!-- 核心概念 -->
+              <div class="summary-section" v-if="summaryData.key_concepts?.length">
+                <h4>核心概念</h4>
+                <div class="concept-cards">
+                  <div v-for="(kc, i) in summaryData.key_concepts" :key="i" class="concept-card">
+                    <span class="concept-term">{{ kc.term }}</span>
+                    <p class="concept-def">{{ kc.definition }}</p>
+                    <div v-if="kc.related_terms?.length" class="concept-related">
+                      <span v-for="(rt, j) in kc.related_terms" :key="j" class="related-tag">{{ rt }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 类比 -->
+              <div class="summary-section" v-if="summaryData.analogies?.length">
+                <h4>类比解释</h4>
+                <div class="analogy-list">
+                  <div v-for="(a, i) in summaryData.analogies" :key="i" class="analogy-item">
+                    <span class="analogy-concept">{{ a.concept }}</span>
+                    <span class="analogy-arrow">≈</span>
+                    <span class="analogy-text">{{ a.analogy }}</span>
+                    <p v-if="a.mapping" class="analogy-mapping">{{ a.mapping }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 结论 -->
               <div class="summary-section" v-if="summaryData.conclusion">
                 <h4>结论</h4>
                 <p>{{ summaryData.conclusion }}</p>
               </div>
 
+              <!-- 贡献 -->
               <div class="summary-section" v-if="summaryData.contributions?.length">
                 <h4>贡献</h4>
                 <ul>
@@ -813,6 +901,7 @@ onUnmounted(() => {
                 </ul>
               </div>
 
+              <!-- 关键洞察 -->
               <div class="summary-section" v-if="summaryData.key_insights?.length">
                 <h4>关键洞察</h4>
                 <ul>
@@ -820,11 +909,32 @@ onUnmounted(() => {
                 </ul>
               </div>
 
-              <div class="summary-actions" v-if="isWaitingReview || true">
+              <!-- 观众要点 -->
+              <div class="summary-section" v-if="summaryData.audience_takeaways?.length">
+                <h4>观众要点</h4>
+                <div class="takeaway-list">
+                  <div v-for="(t, i) in summaryData.audience_takeaways" :key="i" class="takeaway-item">
+                    <span class="takeaway-num">{{ i + 1 }}</span>
+                    <span>{{ t }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 代码片段 -->
+              <div class="summary-section" v-if="summaryData.code_snippets?.length">
+                <h4>代码 / 伪代码</h4>
+                <div v-for="(cs, i) in summaryData.code_snippets" :key="i" class="code-block">
+                  <pre>{{ cs }}</pre>
+                </div>
+              </div>
+
+              <!-- 操作按钮 -->
+              <div class="summary-actions">
                 <el-button size="small" :loading="savingSummary" @click="handleSaveSummary">保存修改</el-button>
                 <el-button size="small" :loading="rerunningFigures" @click="handleRerunAllFigures">重新分析全部图表</el-button>
               </div>
 
+              <!-- 图表分析 -->
               <div class="summary-section" v-if="summaryData.figures?.length">
                 <h4>图表分析 ({{ summaryData.figures.length }})</h4>
                 <p class="figure-hint">点击星级评分可标记重要性（5 星 = 必须在视频中展示）。不评分则沿用 AI 默认判断。</p>
@@ -876,11 +986,6 @@ onUnmounted(() => {
                   </div>
                 </div>
               </div>
-
-              <div class="summary-tags" v-if="summaryData.paper_type || summaryData.core_idea">
-                <span v-if="summaryData.paper_type" class="summary-tag">{{ summaryData.paper_type }}</span>
-                <span v-if="summaryData.core_idea" class="summary-core-idea">{{ summaryData.core_idea }}</span>
-              </div>
             </div>
             <div v-else class="expand-empty">暂无摘要数据</div>
           </template>
@@ -891,12 +996,129 @@ onUnmounted(() => {
               <h3>旁白脚本</h3>
               <span v-if="scriptData?.scenes" class="expand-hint">共 {{ scriptData.scenes.length }} 个场景</span>
             </div>
+
+            <!-- 视频元信息 -->
+            <div v-if="scriptData?.meta" class="script-meta-bar">
+              <span class="meta-chip">{{ scriptData.meta.width }}x{{ scriptData.meta.height }}</span>
+              <span class="meta-chip">{{ scriptData.meta.fps }} FPS</span>
+              <span class="meta-chip" v-if="scriptData.scenes?.length">
+                {{ Math.round(scriptData.scenes.reduce((sum: number, s: any) => sum + (s.durationInFrames || 0), 0) / (scriptData.meta.fps || 30)) }}s 总时长
+              </span>
+              <span v-if="scriptData.meta.theme" class="meta-chip theme">{{ scriptData.meta.theme }}</span>
+            </div>
+
             <div v-if="scriptData?.scenes?.length" class="script-list">
-              <div v-for="(scene, idx) in scriptData.scenes" :key="idx" class="script-item">
+              <div v-for="(scene, idx) in scriptData.scenes" :key="idx" class="script-item" :class="`scene-${scene.type}`">
                 <div class="script-item-header">
                   <span class="script-idx">{{ idx + 1 }}</span>
-                  <span class="script-type">{{ sceneTypeLabel(scene.type) }}</span>
+                  <span class="script-type" :class="`type-${scene.type}`">{{ sceneTypeLabel(scene.type) }}</span>
+                  <span class="script-duration" v-if="scene.durationInFrames">
+                    {{ (scene.durationInFrames / (scriptData.meta?.fps || 30)).toFixed(1) }}s
+                  </span>
+                  <span v-if="scene.choreography?.length" class="script-choreo-badge" :title="`${scene.choreography.length} 个动画阶段`">
+                    {{ scene.choreography.length }} 阶段
+                  </span>
                 </div>
+
+                <!-- 场景数据预览 -->
+                <div class="scene-data-preview" v-if="scene.data">
+                  <!-- figure: 缩略图 -->
+                  <template v-if="scene.type === 'figure' && scene.data.figurePath">
+                    <div class="preview-figure">
+                      <img :src="getFigureUrl(id, scene.data.figurePath.split('/').pop())" loading="lazy" />
+                      <span v-if="scene.data.caption" class="preview-caption">{{ scene.data.caption }}</span>
+                    </div>
+                  </template>
+
+                  <!-- formula: LaTeX 渲染 -->
+                  <template v-else-if="scene.type === 'formula' && scene.data.formula">
+                    <div class="preview-formula">
+                      <div v-html="renderLatex(scene.data.formula)" class="preview-katex" />
+                      <span v-if="scene.data.title" class="preview-formula-title">{{ scene.data.title }}</span>
+                    </div>
+                  </template>
+
+                  <!-- method: 步骤列表 -->
+                  <template v-else-if="scene.type === 'method' && scene.data.steps?.length">
+                    <div class="preview-steps">
+                      <span v-for="(step, si) in scene.data.steps" :key="si" class="preview-step-chip">
+                        {{ si + 1 }}. {{ step.length > 40 ? step.slice(0, 40) + '...' : step }}
+                      </span>
+                    </div>
+                  </template>
+
+                  <!-- result: 数据集 + baselines 数 -->
+                  <template v-else-if="scene.type === 'result'">
+                    <div class="preview-result">
+                      <div v-if="scene.data.datasets?.length" class="preview-datasets">
+                        <span v-for="(d, di) in scene.data.datasets" :key="di" class="metric-chip">{{ d }}</span>
+                      </div>
+                      <span v-if="scene.data.baselines?.length" class="preview-baseline-count">
+                        {{ scene.data.baselines.length }} 条对比数据
+                      </span>
+                    </div>
+                  </template>
+
+                  <!-- concept: 术语 + 定义 -->
+                  <template v-else-if="scene.type === 'concept' && scene.data.title">
+                    <div class="preview-concept">
+                      <strong>{{ scene.data.title }}</strong>
+                      <span v-if="scene.data.definition">{{ scene.data.definition }}</span>
+                    </div>
+                  </template>
+
+                  <!-- analogy: 概念 ≈ 类比 -->
+                  <template v-else-if="scene.type === 'analogy' && scene.data.concept">
+                    <div class="preview-analogy">
+                      {{ scene.data.concept?.label }} <span class="analogy-arrow">≈</span> {{ scene.data.analogy?.label }}
+                    </div>
+                  </template>
+
+                  <!-- relationship: 节点 + 边数 -->
+                  <template v-else-if="scene.type === 'relationship' && scene.data.nodes">
+                    <div class="preview-relationship">
+                      {{ scene.data.nodes.length }} 个节点, {{ scene.data.edges?.length || 0 }} 条关系
+                      ({{ scene.data.layout || 'radial' }})
+                    </div>
+                  </template>
+
+                  <!-- comparison: 对比项 -->
+                  <template v-else-if="scene.type === 'comparison' && scene.data.items">
+                    <div class="preview-comparison">
+                      <span v-for="(item, ci) in scene.data.items" :key="ci" class="preview-step-chip">{{ item.name }}</span>
+                    </div>
+                  </template>
+
+                  <!-- summary_card: 要点 -->
+                  <template v-else-if="scene.type === 'summary_card' && scene.data.points">
+                    <div class="preview-summary-points">
+                      <span v-for="(p, pi) in scene.data.points" :key="pi" class="preview-point">{{ p }}</span>
+                    </div>
+                  </template>
+
+                  <!-- code_demo: 语言 + 代码预览 -->
+                  <template v-else-if="scene.type === 'code_demo' && scene.data.code">
+                    <div class="preview-code">
+                      <span class="code-lang-tag">{{ scene.data.language || 'code' }}</span>
+                      <pre>{{ scene.data.code.slice(0, 120) }}{{ scene.data.code.length > 120 ? '...' : '' }}</pre>
+                    </div>
+                  </template>
+
+                  <!-- character_talk -->
+                  <template v-else-if="scene.type === 'character_talk' && scene.data.text">
+                    <div class="preview-character">
+                      <span class="preview-bubble">{{ scene.data.text.slice(0, 80) }}{{ scene.data.text.length > 80 ? '...' : '' }}</span>
+                    </div>
+                  </template>
+
+                  <!-- overview / conclusion: 显示 data keys -->
+                  <template v-else-if="Object.keys(scene.data).length > 0">
+                    <div class="preview-generic">
+                      <span v-for="key in Object.keys(scene.data).slice(0, 5)" :key="key" class="preview-key-tag">{{ key }}</span>
+                    </div>
+                  </template>
+                </div>
+
                 <p class="script-narration">{{ scene.narration }}</p>
               </div>
             </div>
@@ -1517,14 +1739,27 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.baselines-table {
+/* ===== Baselines (grouped by dataset) ===== */
+.baselines-grouped {
   margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.baselines-table table {
+.baseline-group-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: #4f46e5;
+  padding: 6px 12px;
+  background: #eef2ff;
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.baselines-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 6px;
   font-size: 13px;
 }
 
@@ -1548,12 +1783,224 @@ onUnmounted(() => {
   color: #4f46e5;
 }
 
-.summary-tags {
+.proposed-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  background: #4f46e5;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.value-cell {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.metrics-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.metric-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  background: #f0fdf4;
+  color: #15803d;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.findings-text {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #fffbeb;
+  border-left: 3px solid #f59e0b;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #78350f;
+}
+
+/* ===== Component Relations ===== */
+.component-relations {
+  margin-top: 10px;
+}
+
+.relation-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.relation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #334155;
+}
+
+.relation-arrow {
+  color: #6366f1;
+  font-weight: 700;
+}
+
+.relation-desc {
+  color: #94a3b8;
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+/* ===== Concept Cards ===== */
+.concept-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.concept-card {
+  padding: 12px 14px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+}
+
+.concept-term {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0369a1;
+}
+
+.concept-def {
+  font-size: 13px;
+  color: #334155;
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+.concept-related {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.related-tag {
+  padding: 1px 8px;
+  background: #e0f2fe;
+  color: #0284c7;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+/* ===== Analogy ===== */
+.analogy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.analogy-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fefce8;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+}
+
+.analogy-concept {
+  font-weight: 700;
+  color: #92400e;
+  font-size: 13px;
+}
+
+.analogy-arrow {
+  color: #d97706;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.analogy-text {
+  font-size: 13px;
+  color: #78350f;
+}
+
+.analogy-mapping {
+  width: 100%;
+  font-size: 12px;
+  color: #a16207;
+  margin: 2px 0 0;
+  font-style: italic;
+}
+
+/* ===== Audience Takeaways ===== */
+.takeaway-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.takeaway-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.6;
+}
+
+.takeaway-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #10b981;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ===== Code Blocks ===== */
+.code-block {
+  margin-bottom: 8px;
+}
+
+.code-block pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 14px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-x: auto;
+  margin: 0;
+}
+
+/* ===== Summary Tags (inline) ===== */
+.summary-tags-inline {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding-top: 12px;
-  border-top: 1px solid #e2e8f0;
+  margin-top: 8px;
 }
 
 .summary-tag {
@@ -1713,11 +2160,38 @@ onUnmounted(() => {
 }
 
 /* ===== Scripting: Script list ===== */
+.script-meta-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.meta-chip {
+  padding: 3px 10px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.meta-chip.theme {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #4f46e5;
+}
+
 .script-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-height: 500px;
+  max-height: 600px;
   overflow-y: auto;
 }
 
@@ -1761,6 +2235,217 @@ onUnmounted(() => {
   background: #eef2ff;
   padding: 2px 10px;
   border-radius: 10px;
+}
+
+.script-type.type-title { background: #fef3c7; color: #92400e; }
+.script-type.type-overview { background: #dbeafe; color: #1e40af; }
+.script-type.type-method { background: #dcfce7; color: #166534; }
+.script-type.type-formula { background: #fae8ff; color: #86198f; }
+.script-type.type-figure { background: #fff7ed; color: #c2410c; }
+.script-type.type-result { background: #fee2e2; color: #991b1b; }
+.script-type.type-conclusion { background: #f0fdf4; color: #15803d; }
+.script-type.type-concept { background: #e0f2fe; color: #0369a1; }
+.script-type.type-analogy { background: #fef9c3; color: #854d0e; }
+.script-type.type-relationship { background: #ede9fe; color: #5b21b6; }
+.script-type.type-comparison { background: #fce7f3; color: #9d174d; }
+.script-type.type-summary_card { background: #ecfdf5; color: #065f46; }
+.script-type.type-code_demo { background: #f1f5f9; color: #334155; }
+
+.script-duration {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.script-choreo-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: #ede9fe;
+  color: #7c3aed;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* ===== Scene data previews ===== */
+.scene-data-preview {
+  margin-bottom: 10px;
+}
+
+.preview-figure {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.preview-figure img {
+  width: 80px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.preview-caption {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.preview-formula {
+  padding: 8px 14px;
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  border-radius: 8px;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.preview-katex {
+  font-size: 14px;
+}
+
+.preview-formula-title {
+  display: block;
+  font-size: 11px;
+  color: #9333ea;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.preview-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.preview-step-chip {
+  padding: 2px 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #166534;
+}
+
+.preview-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.preview-datasets {
+  display: flex;
+  gap: 4px;
+}
+
+.preview-baseline-count {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.preview-concept {
+  padding: 6px 12px;
+  background: #e0f2fe;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #0369a1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.preview-analogy {
+  padding: 6px 12px;
+  background: #fef9c3;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #854d0e;
+  font-weight: 500;
+}
+
+.preview-relationship {
+  font-size: 12px;
+  color: #7c3aed;
+  background: #ede9fe;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.preview-comparison {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.preview-summary-points {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.preview-point {
+  font-size: 11px;
+  color: #374151;
+  padding-left: 10px;
+  border-left: 2px solid #10b981;
+}
+
+.preview-code {
+  background: #1e293b;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.preview-code pre {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #cbd5e1;
+  line-height: 1.4;
+  overflow-x: auto;
+}
+
+.code-lang-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #334155;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.preview-character {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-bubble {
+  padding: 6px 12px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #334155;
+}
+
+.preview-generic {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.preview-key-tag {
+  padding: 2px 8px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #6b7280;
+  font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
 .script-narration {

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import io
+import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -101,6 +102,44 @@ importance 评分标准：
 - 1: 装饰性或不太重要的图
 """
 
+RESULT_TABLE_EXTRACTION_PROMPT = """\
+你是一位数据提取专家。给定一张包含实验结果或对比数据的论文图表，请提取其中的结构化数据。
+
+图片类型：{figure_type}
+图片描述：{description}
+图片标题：{caption}
+
+请以有效的 JSON 响应（不加 Markdown 围栏）：
+
+{{
+  "has_numerical_data": true,
+  "table_data": {{
+    "column_headers": ["方法名", "指标1", "指标2"],
+    "rows": [
+      {{"method": "方法A", "values": {{"指标1": 85.3, "指标2": 92.1}}, "is_proposed": false}},
+      {{"method": "本文方法", "values": {{"指标1": 91.2, "指标2": 95.8}}, "is_proposed": true}}
+    ],
+    "datasets": ["数据集名称"],
+    "best_result_summary": "简要对比结论"
+  }},
+  "chart_data": {{
+    "chart_type": "bar|line|scatter|heatmap|other",
+    "data_points": [
+      {{"label": "系列名", "values": [{{"x": "类别", "y": 数字}}]}}
+    ],
+    "key_comparison": "关键对比结论"
+  }}
+}}
+
+指南：
+- has_numerical_data: 图中是否包含可提取的数值
+- 如果是表格，填写 table_data；如果是图表，填写 chart_data；可以两者都填
+- 数值必须是图中真实可见的数字，不要编造
+- is_proposed 标记哪个是本文提出的方法
+- 图片模糊无法准确读数时，对应值填 null
+- 没有数值数据时 has_numerical_data 设为 false，其他字段留空对象
+"""
+
 _SUPPORTED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
 _MIME_MAP = {
     ".png": "image/png",
@@ -122,7 +161,7 @@ def analyze_figures(
     api_key: str | None = None,
     api_base: str | None = None,
     on_token: Callable[[str], None] | None = None,
-) -> list[Figure]:
+) -> tuple[list[Figure], list[dict]]:
     """使用多模态 LLM 分析论文图表。
 
     参数:
@@ -135,10 +174,10 @@ def analyze_figures(
         api_base: LLM API 基础 URL。
 
     返回:
-        按重要性排序的 :class:`Figure` 列表。
+        (按重要性排序的 Figure 列表, 结果类图表的数值提取数据列表)
     """
     if not figures:
-        return []
+        return [], []
 
     logger.info("图表分析: 共 %d 张图, 将分析最多 %d 张, model=%s", len(figures), max_figures, model)
 
@@ -147,12 +186,12 @@ def analyze_figures(
             "图表分析跳过：模型 %s 不支持图片输入。请设置 THEIA_FIGURE_MODEL 为支持视觉的模型（如 kimi-k2.5）",
             model,
         )
-        return _fallback_figures(figures[:max_figures])
+        return _fallback_figures(figures[:max_figures]), []
 
     resolved = _resolve_figure_paths(figures, images_dir)
     if not resolved:
         logger.info("未找到可读取的图片文件")
-        return _fallback_figures(figures[:max_figures])
+        return _fallback_figures(figures[:max_figures]), []
 
     candidates = sorted(resolved, key=lambda x: _presort_score(x["fig"]), reverse=True)
     if len(candidates) > max_figures:
@@ -204,7 +243,38 @@ def analyze_figures(
         importance_counts[f.importance] = importance_counts.get(f.importance, 0) + 1
     dist_str = ", ".join(f"importance {k}: {importance_counts[k]}" for k in sorted(importance_counts, reverse=True))
     logger.info("图表分析完成: %d/%d 张 (并行 workers=%d), 重要性分布: %s", len(analyzed), len(candidates), workers, dist_str)
-    return analyzed
+
+    result_table_data: list[dict] = []
+    result_figures = [
+        (fig, item["path"])
+        for fig, item in zip(analyzed, candidates)
+        if fig.figure_type in ("result", "table", "comparison") and fig.importance >= 3
+    ]
+
+    if result_figures:
+        logger.info("Step 3b: %d 张结果类图表需要提取数值数据", len(result_figures))
+        for fig, img_path in result_figures:
+            try:
+                table_data = _extract_result_data(
+                    img_path,
+                    fig,
+                    model=model,
+                    api_key=api_key,
+                    api_base=api_base,
+                    on_token=on_token,
+                )
+                if table_data.get("has_numerical_data"):
+                    result_table_data.append({
+                        "figure_path": fig.path,
+                        "figure_type": fig.figure_type,
+                        "caption": fig.caption,
+                        **table_data,
+                    })
+                    logger.info("Step 3b: 从 %s 提取到结构化数据", Path(fig.path).name)
+            except Exception as exc:
+                logger.warning("Step 3b: 结果图表数据提取失败 %s: %s", fig.path, exc)
+
+    return analyzed, result_table_data
 
 
 def reanalyze_single_figure(
@@ -494,8 +564,6 @@ def _analyze_single_figure(
     if api_base:
         kwargs["api_base"] = api_base
 
-    import json
-
     try:
         response = robust_completion(kwargs, on_token=on_token)
     except Exception as exc:
@@ -504,6 +572,60 @@ def _analyze_single_figure(
             raise ValueError(f"模型 {model} 不支持图片输入，请更换为视觉模型") from exc
         raise
 
+    raw = response.choices[0].message.content.strip()
+    raw = strip_json_fences(raw)
+    return json.loads(raw)
+
+
+def _extract_result_data(
+    img_path: Path,
+    figure: Figure,
+    *,
+    model: str,
+    api_key: str | None = None,
+    api_base: str | None = None,
+    on_token: Callable[[str], None] | None = None,
+) -> dict:
+    """从结果类图表中提取结构化数值数据（Step 3b）。"""
+    raw_bytes = img_path.read_bytes()
+    if _is_svg(raw_bytes):
+        png_bytes = _svg_to_png(raw_bytes, scale_width=_MAX_DIMENSION)
+        if png_bytes is None:
+            return {"has_numerical_data": False}
+        raw_bytes = png_bytes
+        suffix = ".png"
+    else:
+        suffix = img_path.suffix.lower()
+
+    img_bytes, mime = _compress_image(raw_bytes, suffix)
+    img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+
+    prompt = RESULT_TABLE_EXTRACTION_PROMPT.format(
+        figure_type=figure.figure_type,
+        description=figure.description[:500] if figure.description else "（无描述）",
+        caption=figure.caption or "（无标题）",
+    )
+
+    kwargs: dict = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_b64}"}},
+                ],
+            }
+        ],
+        "max_tokens": 2048,
+        "temperature": 0.1,
+    }
+    if api_key:
+        kwargs["api_key"] = api_key
+    if api_base:
+        kwargs["api_base"] = api_base
+
+    response = robust_completion(kwargs, on_token=on_token)
     raw = response.choices[0].message.content.strip()
     raw = strip_json_fences(raw)
     return json.loads(raw)

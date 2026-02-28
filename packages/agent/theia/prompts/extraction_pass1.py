@@ -18,7 +18,10 @@ PASS1_PROMPT = """\
     "深度阅读时需要回答的问题3",
     "深度阅读时需要回答的问题4",
     "深度阅读时需要回答的问题5"
-  ]
+  ],
+  "has_comparison_tables": true,
+  "has_code_or_algorithm": false,
+  "analogy_hints": ["论文自己使用的类比或直觉解释"]
 }}
 
 指南：
@@ -27,6 +30,9 @@ PASS1_PROMPT = """\
 - key_contributions: 3-5 条，简洁但具体
 - important_sections: 列出原文中需要深入阅读的章节标题（原文标题，不翻译）
 - reading_focus: 5-8 个具体问题，涵盖方法细节、实验设置、关键结果、与先前工作的区别等
+- has_comparison_tables: 论文是否包含方法对比表格（判断依据：摘要/引言中是否提到 comparison/ablation/benchmark）
+- has_code_or_algorithm: 论文是否包含代码或算法伪代码
+- analogy_hints: 论文自己使用的类比或直觉性解释（如"attention is like a spotlight"），最多 3 条
 - 所有文本使用中文输出（章节标题除外，保持原文）
 
 请快速扫描以下论文并生成阅读指南：

@@ -15,36 +15,189 @@ import logging
 import re as _re
 from typing import Callable
 
+from ..scene_registry import get_min_scene_seconds, get_visual_pauses
 from ..schemas import (
     PaperSummary,
     Scene,
     SceneNarration,
+    ScenePlan,
     SceneType,
+    StoryBlueprint,
     VideoMeta,
     VideoScript,
 )
+from .story_architect import ScenePool
 
 logger = logging.getLogger(__name__)
 
 CHARS_PER_SECOND_ZH = 3.5
 CHARS_PER_SECOND_EN = 12.0
 
-VISUAL_PAUSE_SECONDS: dict[str, float] = {
-    "formula": 5.0,
-    "figure": 4.0,
-    "method": 2.0,
-    "result": 2.0,
-}
+VISUAL_PAUSE_SECONDS: dict[str, float] = get_visual_pauses()
+MIN_SCENE_SECONDS: dict[str, float] = get_min_scene_seconds()
 
-MIN_SCENE_SECONDS: dict[str, float] = {
-    "title": 5.0,
-    "overview": 15.0,
-    "method": 15.0,
-    "formula": 15.0,
-    "figure": 12.0,
-    "result": 15.0,
-    "conclusion": 10.0,
-}
+
+def _validate_blueprint(blueprint: StoryBlueprint, pool: ScenePool) -> StoryBlueprint | None:
+    """校验并修复 Story Architect 生成的蓝图。
+
+    返回修复后的蓝图，严重问题时返回 None 触发降级。
+    """
+    if not blueprint.scenes:
+        logger.warning("蓝图校验: 场景列表为空")
+        return None
+
+    scenes = list(blueprint.scenes)
+    allowed_types = set(pool.required) | {c.scene_type for c in pool.candidates}
+
+    original_count = len(scenes)
+    scenes = [s for s in scenes if s.type in allowed_types]
+    if len(scenes) < original_count:
+        removed = original_count - len(scenes)
+        logger.warning("蓝图校验: 移除了 %d 个不在候选池中的场景", removed)
+
+    if not scenes:
+        logger.warning("蓝图校验: 移除非法场景后为空")
+        return None
+
+    if scenes[0].type != "title":
+        title_scenes = [s for s in scenes if s.type == "title"]
+        other_scenes = [s for s in scenes if s.type != "title"]
+        if title_scenes:
+            scenes = [title_scenes[0]] + other_scenes
+        else:
+            logger.warning("蓝图校验: 缺少 title 场景")
+            return None
+
+    if scenes[-1].type != "conclusion":
+        conclusion_scenes = [s for s in scenes if s.type == "conclusion"]
+        other_scenes = [s for s in scenes if s.type != "conclusion"]
+        if conclusion_scenes:
+            scenes = other_scenes + [conclusion_scenes[-1]]
+        else:
+            scenes.append(
+                ScenePlan(
+                    type="conclusion",
+                    target_duration_range=(10.0, 20.0),
+                    narrative_role="resolution",
+                    attention_strategy="synced",
+                    narration_word_range=(40, 80),
+                )
+            )
+            logger.info("蓝图校验: 自动补充 conclusion 场景")
+
+    has_overview = any(s.type == "overview" for s in scenes)
+    if not has_overview:
+        insert_idx = 1 if len(scenes) > 1 else len(scenes)
+        scenes.insert(
+            insert_idx,
+            ScenePlan(
+                type="overview",
+                target_duration_range=(15.0, 30.0),
+                narrative_role="hook",
+                attention_strategy="voice_primary",
+                narration_word_range=(60, 120),
+            ),
+        )
+        logger.info("蓝图校验: 自动补充 overview 场景")
+
+    min_s, max_s = pool.budget
+    if len(scenes) > max_s:
+        required_types = set(pool.required)
+        candidate_scores = {c.scene_type: c.score for c in pool.candidates}
+        removable = [(i, s) for i, s in enumerate(scenes) if s.type not in required_types]
+        removable.sort(key=lambda x: candidate_scores.get(x[1].type, 0.5))
+        while len(scenes) > max_s and removable:
+            idx, _ = removable.pop(0)
+            if idx < len(scenes):
+                scenes.pop(idx)
+                removable = [(i if i < idx else i - 1, s) for i, s in removable if i != idx]
+        logger.info("蓝图校验: 裁剪到 %d 个场景（预算上限 %d）", len(scenes), max_s)
+
+    blueprint.scenes = scenes
+    return blueprint
+
+
+def _build_fallback_blueprint(summary: PaperSummary) -> StoryBlueprint:
+    """确定性降级：生成安全的基础场景蓝图。"""
+    scenes = [
+        ScenePlan(
+            type="title",
+            target_duration_range=(5.0, 10.0),
+            narrative_role="hook",
+            attention_strategy="voice_primary",
+            narration_word_range=(15, 35),
+        ),
+        ScenePlan(
+            type="overview",
+            target_duration_range=(15.0, 30.0),
+            narrative_role="hook",
+            attention_strategy="voice_primary",
+            narration_word_range=(60, 120),
+        ),
+    ]
+
+    if summary.method.key_steps:
+        scenes.append(
+            ScenePlan(
+                type="method",
+                target_duration_range=(15.0, 30.0),
+                narrative_role="build_up",
+                attention_strategy="synced",
+                narration_word_range=(60, 120),
+            )
+        )
+
+    if summary.method.formulas:
+        scenes.append(
+            ScenePlan(
+                type="formula",
+                target_duration_range=(15.0, 25.0),
+                narrative_role="climax",
+                attention_strategy="visual_primary",
+                narration_word_range=(55, 100),
+            )
+        )
+
+    important_figs = [f for f in summary.figures if f.importance >= 3]
+    for _ in important_figs[:2]:
+        scenes.append(
+            ScenePlan(
+                type="figure",
+                target_duration_range=(12.0, 20.0),
+                narrative_role="build_up",
+                attention_strategy="visual_primary",
+                narration_word_range=(50, 85),
+            )
+        )
+
+    if summary.results.findings:
+        scenes.append(
+            ScenePlan(
+                type="result",
+                target_duration_range=(15.0, 28.0),
+                narrative_role="climax",
+                attention_strategy="synced",
+                narration_word_range=(60, 110),
+            )
+        )
+
+    scenes.append(
+        ScenePlan(
+            type="conclusion",
+            target_duration_range=(10.0, 20.0),
+            narrative_role="resolution",
+            attention_strategy="synced",
+            narration_word_range=(40, 80),
+        )
+    )
+
+    logger.info("降级蓝图: %d 个场景", len(scenes))
+    return StoryBlueprint(
+        narrative_arc="从研究问题出发，介绍方法和实验结果，最后总结",
+        scenes=scenes,
+        total_target_duration=(120.0, 240.0),
+        key_moments=["核心方法", "主要实验结果"],
+    )
 
 
 def generate_video_script(
@@ -93,7 +246,7 @@ def generate_video_script(
     """
     from .pacing_reviewer import review_pacing
     from .scene_writer import write_scenes
-    from .story_architect import plan_story
+    from .story_architect import build_scene_pool, plan_story
     from .visual_director import choreograph_scenes
 
     def _report(agent: str, msg: str) -> None:
@@ -104,13 +257,25 @@ def generate_video_script(
     _report("story_architect", "正在规划叙事结构...")
 
     # --- Agent 1: Story Architect ---
-    blueprint = plan_story(
+    scene_pool = build_scene_pool(summary, theme=theme)
+    blueprint, _pool = plan_story(
         summary,
+        scene_pool=scene_pool,
         model=story_model,
         api_key=story_api_key,
         api_base=story_api_base,
         on_token=on_token,
     )
+
+    if scene_pool:
+        validated = _validate_blueprint(blueprint, scene_pool)
+        if validated is None:
+            _report("story_architect", "蓝图校验失败，降级到确定性模式")
+            blueprint = _build_fallback_blueprint(summary)
+        else:
+            blueprint = validated
+            _report("story_architect", f"蓝图校验通过: {len(blueprint.scenes)} 个场景")
+
     _report(
         "story_architect",
         f"叙事规划完成: {len(blueprint.scenes)} 个场景, 弧线: {blueprint.narrative_arc[:40]}",

@@ -61,10 +61,38 @@ class Figure(BaseModel):
     )
 
 
+class KeyConcept(BaseModel):
+    """核心概念，可用于 concept 场景。"""
+
+    term: str = Field(description="术语名称（如 Multi-Head Attention）")
+    definition: str = Field(description="一句话通俗定义（面向非专业观众）")
+    related_terms: list[str] = Field(default_factory=list, description="关联术语")
+
+
+class Analogy(BaseModel):
+    """技术类比，可用于 analogy 场景。"""
+
+    concept: str = Field(description="技术概念")
+    analogy: str = Field(description="日常生活类比")
+    mapping: str = Field(default="", description="类比映射说明")
+
+
+class ComponentRelation(BaseModel):
+    """组件间依赖关系，可用于 relationship 场景。"""
+
+    source: str = Field(description="源组件")
+    target: str = Field(description="目标组件")
+    relation: str = Field(description="关系描述（如 '输出传入', '依赖于'）")
+
+
 class MethodDetail(BaseModel):
     summary: str = Field(description="方法概述（一段话）")
     key_steps: list[str] = Field(default_factory=list, description="有序的方法步骤")
     formulas: list[str] = Field(default_factory=list, description="关键公式（LaTeX 格式）")
+    component_relations: list[ComponentRelation] = Field(
+        default_factory=list,
+        description="组件间依赖关系（用于 relationship 场景）",
+    )
 
 
 class BaselineResult(BaseModel):
@@ -113,6 +141,22 @@ class PaperSummary(BaseModel):
     paper_type: str = Field(default="", description="论文类型: empirical/theoretical/survey/system")
     core_idea: str = Field(default="", description="一句话核心直觉")
     key_insights: list[str] = Field(default_factory=list, description="关键洞察列表")
+    key_concepts: list[KeyConcept] = Field(
+        default_factory=list,
+        description="核心概念列表（用于 concept 场景）",
+    )
+    analogies: list[Analogy] = Field(
+        default_factory=list,
+        description="技术类比列表（用于 analogy 场景）",
+    )
+    code_snippets: list[str] = Field(
+        default_factory=list,
+        description="代码片段/伪代码列表（用于 code_demo 场景）",
+    )
+    audience_takeaways: list[str] = Field(
+        default_factory=list,
+        description="面向普通观众的精炼要点（用于 summary_card/character_talk 场景）",
+    )
 
 
 class PaperOverview(BaseModel):

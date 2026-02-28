@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+from ..scene_registry import get_duration_bounds, get_visual_pauses
 from ..schemas import (
     AnimationPhase,
     ReviewResult,
@@ -18,15 +19,7 @@ from ..schemas import (
 
 logger = logging.getLogger(__name__)
 
-SCENE_DURATION_BOUNDS: dict[str, tuple[float, float]] = {
-    "title": (5.0, 10.0),
-    "overview": (15.0, 35.0),
-    "method": (15.0, 35.0),
-    "formula": (15.0, 30.0),
-    "figure": (12.0, 25.0),
-    "result": (15.0, 32.0),
-    "conclusion": (10.0, 22.0),
-}
+SCENE_DURATION_BOUNDS: dict[str, tuple[float, float]] = get_duration_bounds()
 
 CHARS_PER_SECOND_ZH = 3.5
 
@@ -60,7 +53,7 @@ def review_pacing(
 
     cps = CHARS_PER_SECOND_ZH if language == "zh" else 12.0
 
-    visual_pause = {"formula": 5.0, "figure": 4.0, "method": 2.0, "result": 2.0}
+    visual_pause = get_visual_pauses()
 
     scene_durations: list[float] = []
     for i, (plan, narr) in enumerate(zip(blueprint.scenes, narrations)):

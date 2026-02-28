@@ -169,6 +169,7 @@ def extract(
         model=model,
         scan_model=scan_model,
         images_dir=result.images_dir,
+        content_list=result.content_list,
     )
 
     import json

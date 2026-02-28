@@ -22,10 +22,13 @@ from typing_extensions import TypedDict
 
 from ._utils import extract_figures_from_markdown, pdf_stem
 from .cache import cache_key_for_content, cache_key_for_pdf, get_cached, set_cached
+from .scene_registry import get_skip_aux_figures_set
 from .llm.config import LLMConfig, detect_language
 from .schemas import VIDEO_PRESETS, PaperSummary, PipelineInput, ProgressCallback, StepInfo, VideoScript
 
 logger = logging.getLogger(__name__)
+
+_SKIP_AUX_FIGURES = get_skip_aux_figures_set()
 
 
 # ---------------------------------------------------------------------------
@@ -195,10 +198,20 @@ def parse_node(state: PipelineState) -> dict:
                 images_dir = sub
                 output_dir = sub.parent
                 break
+
+        content_list_cached = None
+        cl_candidates = list(parsed_base.rglob("*content_list.json"))
+        if cl_candidates:
+            try:
+                content_list_cached = json.loads(cl_candidates[0].read_text(encoding="utf-8"))
+                logger.info("从缓存加载 content_list: %s (%d 条)", cl_candidates[0], len(content_list_cached))
+            except Exception as exc:
+                logger.warning("加载缓存 content_list 失败: %s", exc)
+
         result = ParseResult(
             markdown=markdown,
             images_dir=images_dir,
-            content_list=None,
+            content_list=content_list_cached,
             output_dir=output_dir,
         )
         logger.info("使用已缓存的解析结果: %s (%d 字符)", md_out, len(markdown))
@@ -488,7 +501,7 @@ def script_node(state: PipelineState) -> dict:
                 fscene.data["description"] = best.description
 
         for scene in script.scenes:
-            if scene.type.value in ("formula", "figure"):
+            if scene.type.value in _SKIP_AUX_FIGURES:
                 continue
             matched = [f for f in remaining if f.figure_type == scene.type.value][:2]
             if not matched:
@@ -513,7 +526,7 @@ def script_node(state: PipelineState) -> dict:
                 fscene.data["caption"] = best.get("caption", "")
 
         for scene in script.scenes:
-            if scene.type.value in ("formula", "figure"):
+            if scene.type.value in _SKIP_AUX_FIGURES:
                 continue
             if not remaining_figs:
                 break

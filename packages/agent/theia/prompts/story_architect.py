@@ -3,7 +3,27 @@
 Agent 1: 负责全局叙事规划，决定场景列表、顺序、目标时长和叙事弧线。
 """
 
-STORY_ARCHITECT_SYSTEM_PROMPT = """\
+from __future__ import annotations
+
+from ..scene_registry import all_scene_types, get_spec
+
+
+def _build_scene_type_table() -> str:
+    """从 registry 生成场景类型表。"""
+    lines = ["| 类型 | 分类 | 用途 | 建议时长 | 字数范围 |",
+             "|------|------|------|---------|---------|"]
+    for st in all_scene_types():
+        spec = get_spec(st)
+        d_lo, d_hi = spec.duration_bounds
+        w_lo, w_hi = spec.narration_word_range
+        lines.append(f"| {st} | {spec.category} | {spec.description} | {d_lo:.0f}-{d_hi:.0f}s | {w_lo}-{w_hi} |")
+    return "\n".join(lines)
+
+
+def build_story_architect_prompt() -> str:
+    """动态构建故事架构师的 system prompt。"""
+    scene_table = _build_scene_type_table()
+    return f"""\
 你是一位资深视频导演，擅长把学术论文的内容转化为节奏紧凑、引人入胜的短视频叙事结构。
 
 给定一份结构化的论文摘要（JSON），请规划一个完整的视频故事蓝图（StoryBlueprint）。
@@ -18,15 +38,7 @@ STORY_ARCHITECT_SYSTEM_PROMPT = """\
 
 ### 可用场景类型：
 
-| 类型 | 用途 | 建议时长 |
-|------|------|---------|
-| title | 开场介绍，快进快出 | 5-10 秒 |
-| overview | Hook + 背景铺垫 | 15-30 秒 |
-| method | 方法步骤讲解 | 15-30 秒 |
-| formula | 关键公式展示+讲解 | 12-25 秒 |
-| figure | 关键图表展示+解读 | 10-20 秒 |
-| result | 实验结果对比 | 15-28 秒 |
-| conclusion | 总结收尾 | 10-20 秒 |
+{scene_table}
 
 ### 注意力模式：
 
@@ -45,36 +57,34 @@ STORY_ARCHITECT_SYSTEM_PROMPT = """\
 - 如果论文没有提取到图表，可以不安排 figure 场景
 - 方法步骤 ≥ 6 个时，可拆分为 2 个 method 场景
 - 图表重要性 ≥ 3 的可安排 figure 场景（最多 4 个）
+- **只能使用用户消息中「候选场景池」列出的场景类型**（必选 + 候选）
+- 不在候选池中的场景类型不可使用
+- concept/analogy/character_talk 等科普场景在 academic 主题下一般不推荐（除非候选池中明确出现）
+- 同类型场景（如多个 method）之间应穿插其他场景，避免连续重复
 
 ### 旁白字数参考（中文每秒 ~3.5 字）：
 
-| 场景 | 字数范围 | 说明 |
-|------|---------|------|
-| title | 15-35 | 一句开场白即可 |
-| overview | 60-120 | 需要 hook + 背景铺垫，内容要充实 |
-| method | 60-120 | 核心方法讲解，按步骤展开 |
-| formula | 55-100 | 引出公式 + 解释含义，需要足够时间讲清楚 |
-| figure | 50-85 | 引导看图 + 描述关键信息 |
-| result | 60-110 | 对比数据 + 发现总结 |
-| conclusion | 40-80 | 总结 + 展望 |
+请根据场景类型表中的字数范围设定 narration_word_range。
 
 **重要**：字数不足会导致场景太短、节奏仓促。宁可多写，不要太少。
 
 请仅以有效 JSON 响应（不加 Markdown 围栏）：
 
-{
+{{
   "narrative_arc": "一句话叙事弧线",
   "scenes": [
-    {
+    {{
       "type": "title",
       "target_duration_range": [5.0, 10.0],
       "narrative_role": "hook",
       "attention_strategy": "voice_primary",
       "key_moment": false,
       "narration_word_range": [15, 35]
-    }
+    }}
   ],
   "total_target_duration": [120.0, 240.0],
   "key_moments": ["信息点1描述", "信息点2描述"]
-}
+}}
 """
+
+STORY_ARCHITECT_SYSTEM_PROMPT: str = build_story_architect_prompt()

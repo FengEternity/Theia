@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 def extract_paper_summary(
     markdown_content: str,
     *,
-    model: str = "gpt-4o",
+    model: str = "kimi-k2-0905-preview",
     scan_model: str | None = None,
     figure_model: str | None = None,
     images_dir: Path | None = None,
@@ -33,6 +33,8 @@ def extract_paper_summary(
     max_retries: int = 3,
     api_key: str | None = None,
     api_base: str | None = None,
+    scan_api_key: str | None = None,
+    scan_api_base: str | None = None,
     figure_api_key: str | None = None,
     figure_api_base: str | None = None,
     on_token: Callable[[str], None] | None = None,
@@ -43,15 +45,17 @@ def extract_paper_summary(
     参数:
         markdown_content: MinerU 输出的论文全文 Markdown。
         model: LiteLLM 模型标识符（用于深度提取）。
-        scan_model: Pass 1 快速扫描使用的轻量模型（默认 gpt-4o-mini）。
+        scan_model: Pass 1 快速扫描使用的轻量模型。
         figure_model: 图表分析的视觉语言模型（默认使用 *model*）。
         images_dir: 图片目录路径（用于 Pass 3 多模态图表分析）。
         content_list: MinerU 输出的结构化内容列表（JSON），用于更精确的分段。
         max_tokens: 最大响应 token 数。
         temperature: 采样温度（低 = 确定性更高）。
         max_retries: 失败重试次数。
-        api_key: LLM 服务的 API 密钥（覆盖环境变量默认值）。
-        api_base: LLM 服务的 base URL（覆盖环境变量默认值）。
+        api_key: 深度提取 API 密钥。
+        api_base: 深度提取 API base URL。
+        scan_api_key: 快速扫描 API 密钥（默认使用 api_key）。
+        scan_api_base: 快速扫描 API base URL（默认使用 api_base）。
         figure_api_key: 图表分析专用 API 密钥（默认使用 api_key）。
         figure_api_base: 图表分析专用 API base URL（默认使用 api_base）。
 
@@ -61,7 +65,7 @@ def extract_paper_summary(
     return _extract_multi_pass(
         markdown_content,
         model=model,
-        scan_model=scan_model or "gpt-4o-mini",
+        scan_model=scan_model or model,
         figure_model=figure_model or model,
         images_dir=images_dir,
         content_list=content_list,
@@ -70,6 +74,8 @@ def extract_paper_summary(
         max_retries=max_retries,
         api_key=api_key,
         api_base=api_base,
+        scan_api_key=scan_api_key or api_key,
+        scan_api_base=scan_api_base or api_base,
         figure_api_key=figure_api_key,
         figure_api_base=figure_api_base,
         on_token=on_token,

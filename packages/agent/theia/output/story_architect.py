@@ -20,7 +20,9 @@ logger = logging.getLogger(__name__)
 def plan_story(
     summary: PaperSummary,
     *,
-    model: str = "gpt-4o-mini",
+    model: str = "kimi-k2-0905-preview",
+    api_key: str | None = None,
+    api_base: str | None = None,
     on_token: Callable[[str], None] | None = None,
 ) -> StoryBlueprint:
     """根据论文摘要生成故事蓝图。
@@ -28,6 +30,8 @@ def plan_story(
     参数:
         summary: 提取的论文信息。
         model: LiteLLM 模型标识符。
+        api_key: API 密钥（可选，覆盖环境变量）。
+        api_base: API base URL（可选，覆盖环境变量）。
         on_token: 流式 token 回调。
 
     返回:
@@ -41,7 +45,12 @@ def plan_story(
     if content_hints:
         user_content = f"{content_hints}\n\n{user_content}"
 
-    logger.info("故事架构师: 正在规划叙事结构 model=%s", model)
+    logger.info(
+        "故事架构师: 输入论文 '%s', model=%s, api_base=%s",
+        summary.title[:50],
+        model,
+        api_base or "(默认)",
+    )
 
     kwargs: dict = {
         "model": model,
@@ -53,6 +62,10 @@ def plan_story(
         "temperature": 0.4,
         "response_format": {"type": "json_object"},
     }
+    if api_key:
+        kwargs["api_key"] = api_key
+    if api_base:
+        kwargs["api_base"] = api_base
 
     response = robust_completion(kwargs, on_token=on_token)
 
@@ -93,6 +106,10 @@ def plan_story(
         blueprint.total_target_duration[1],
         blueprint.narrative_arc[:60],
     )
+    from collections import Counter
+
+    type_counts = Counter(s.type for s in blueprint.scenes)
+    logger.info("故事蓝图场景类型: %s", dict(type_counts))
     return blueprint
 
 

@@ -23,6 +23,35 @@ logger = logging.getLogger(__name__)
 _FALLBACK_MODEL = "deepseek-ai/DeepSeek-R1"
 _FALLBACK_VLM_MODEL = "Qwen/Qwen3-VL-32B-Instruct"
 
+
+def _estimate_input_chars(messages: list) -> int:
+    """估算消息列表中的总文本字符数（含多模态消息的文本部分）。"""
+    total = 0
+    for m in messages:
+        if not isinstance(m, dict):
+            continue
+        content = m.get("content", "")
+        if isinstance(content, str):
+            total += len(content)
+        elif isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict) and part.get("type") == "text":
+                    total += len(part.get("text", ""))
+    return total
+
+
+def _has_image_content(messages: list) -> bool:
+    """检查消息是否包含图片内容。"""
+    for m in messages:
+        if not isinstance(m, dict):
+            continue
+        content = m.get("content", "")
+        if isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict) and part.get("type") == "image_url":
+                    return True
+    return False
+
 # ---------------------------------------------------------------------------
 # 全局速率限制器 — 控制所有线程的 LLM 并发与请求间隔
 # ---------------------------------------------------------------------------
@@ -77,8 +106,20 @@ def robust_completion(
     _ensure_direct_openai_kwargs(kwargs)
     _normalize_model_params(kwargs)
 
+    model_tag = kwargs.get("model", "unknown")
+    api_base_tag = kwargs.get("api_base", "default")
+    input_chars = _estimate_input_chars(kwargs.get("messages", []))
+    max_tok = kwargs.get("max_tokens") or kwargs.get("max_completion_tokens", "?")
+    has_images = _has_image_content(kwargs.get("messages", []))
+    img_label = " [含图片]" if has_images else ""
+    logger.info(
+        "LLM 请求: model=%s, api_base=%s, input_chars=%d%s, max_tokens=%s",
+        model_tag, api_base_tag, input_chars, img_label, max_tok,
+    )
+
     removable = ["temperature", "response_format"]
     attempt = 0
+    t0 = _time.monotonic()
     while True:
         _throttle()
         try:
@@ -89,9 +130,16 @@ def robust_completion(
             else:
                 result = litellm.completion(**kwargs)
             _throttle_release()
+            elapsed = _time.monotonic() - t0
+            _log_response(result, model_tag, elapsed)
             return result
         except Exception as exc:
             _throttle_release()
+            elapsed = _time.monotonic() - t0
+            logger.warning(
+                "LLM 调用失败: model=%s, elapsed=%.1fs, attempt=%d, error=%s: %s",
+                model_tag, elapsed, attempt + 1, type(exc).__name__, str(exc)[:200],
+            )
             msg = str(exc).lower()
             removed_any = False
 
@@ -116,11 +164,39 @@ def robust_completion(
 
             strategy = RecoveryStrategy.classify(exc)
             if strategy != RecoveryStrategy.ABORT and attempt < max_retries:
+                logger.info("恢复策略: %s (第 %d 次重试)", strategy, attempt + 1)
                 kwargs = RecoveryStrategy.execute(strategy, kwargs, exc, attempt)
                 attempt += 1
                 continue
 
             raise
+
+
+def _log_response(response, model_tag: str, elapsed: float) -> None:
+    """记录 LLM 响应的 token 用量和耗时。"""
+    usage = getattr(response, "usage", None)
+    if usage:
+        prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
+        completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+        total_tokens = getattr(usage, "total_tokens", 0) or (prompt_tokens + completion_tokens)
+        cache_hit = getattr(usage, "prompt_tokens_details", None)
+        cache_info = ""
+        if cache_hit and hasattr(cache_hit, "cached_tokens"):
+            cached = getattr(cache_hit, "cached_tokens", 0) or 0
+            if cached > 0:
+                cache_info = f", cached={cached}"
+        logger.info(
+            "LLM 响应: model=%s, elapsed=%.1fs, input=%d, output=%d, total=%d%s",
+            model_tag, elapsed, prompt_tokens, completion_tokens, total_tokens, cache_info,
+        )
+    else:
+        content = ""
+        if hasattr(response, "choices") and response.choices:
+            content = getattr(response.choices[0].message, "content", "") or ""
+        logger.info(
+            "LLM 响应: model=%s, elapsed=%.1fs, output_chars=%d (无 usage 信息)",
+            model_tag, elapsed, len(content),
+        )
 
 
 def extract_json_from_response(response) -> str:
@@ -240,10 +316,18 @@ def _streaming_dispatch(kwargs: dict, on_token: Callable[[str], None]):
     return _litellm_streaming(kwargs, on_token)
 
 
-def _collect_stream(stream, on_token: Callable[[str], None]) -> str:
-    """遍历流式迭代器，收集完整内容并触发回调。"""
+def _collect_stream(stream, on_token: Callable[[str], None]) -> tuple[str, dict | None]:
+    """遍历流式迭代器，收集完整内容并触发回调。返回 (content, usage_dict)。"""
     collected: list[str] = []
+    usage_dict: dict | None = None
     for chunk in stream:
+        usage = getattr(chunk, "usage", None)
+        if usage:
+            usage_dict = {
+                "prompt_tokens": getattr(usage, "prompt_tokens", 0) or 0,
+                "completion_tokens": getattr(usage, "completion_tokens", 0) or 0,
+                "total_tokens": getattr(usage, "total_tokens", 0) or 0,
+            }
         choices = getattr(chunk, "choices", None) or []
         if not choices:
             continue
@@ -255,15 +339,15 @@ def _collect_stream(stream, on_token: Callable[[str], None]) -> str:
                 on_token(text)
             except Exception:
                 pass
-    return "".join(collected)
+    return "".join(collected), usage_dict
 
 
 def _litellm_streaming(kwargs: dict, on_token: Callable[[str], None]):
     """通过 litellm 进行流式调用。"""
-    stream_kwargs = dict(kwargs, stream=True)
+    stream_kwargs = dict(kwargs, stream=True, stream_options={"include_usage": True})
     stream = litellm.completion(**stream_kwargs)
-    content = _collect_stream(stream, on_token)
-    return _build_response_from_content(content, kwargs.get("model", ""))
+    content, usage = _collect_stream(stream, on_token)
+    return _build_response_from_content(content, kwargs.get("model", ""), usage)
 
 
 def _direct_openai_streaming(kwargs: dict, on_token: Callable[[str], None]):
@@ -289,23 +373,28 @@ def _direct_openai_streaming(kwargs: dict, on_token: Callable[[str], None]):
         timeout=120,
         default_headers=extra_headers or None,
     )
-    stream = client.chat.completions.create(model=model, stream=True, **call_kwargs)
-    content = _collect_stream(stream, on_token)
-    return _build_response_from_content(content, model)
+    stream = client.chat.completions.create(
+        model=model, stream=True, stream_options={"include_usage": True}, **call_kwargs,
+    )
+    content, usage = _collect_stream(stream, on_token)
+    return _build_response_from_content(content, model, usage)
 
 
-def _build_response_from_content(content: str, model: str):
+def _build_response_from_content(content: str, model: str, usage: dict | None = None):
     """从收集到的完整文本构造 ModelResponse。"""
-    return litellm.ModelResponse(
-        choices=[
+    resp_kwargs: dict = {
+        "choices": [
             litellm.Choices(
                 message=litellm.Message(content=content, role="assistant"),
                 index=0,
                 finish_reason="stop",
             )
         ],
-        model=model,
-    )
+        "model": model,
+    }
+    if usage:
+        resp_kwargs["usage"] = litellm.Usage(**usage)
+    return litellm.ModelResponse(**resp_kwargs)
 
 
 def _direct_openai_completion(kwargs: dict):
@@ -342,7 +431,8 @@ def _direct_openai_completion(kwargs: dict):
 def _normalize_model_params(kwargs: dict) -> None:
     """根据模型名称主动调整不兼容的参数。
 
-    gpt-5.x / o3 / o4 系列模型使用 max_completion_tokens 而非 max_tokens。
+    - gpt-5.x / o3 / o4 系列: max_completion_tokens 而非 max_tokens
+    - kimi-k2.5: 不支持自定义 temperature（仅允许 1）
     """
     model = kwargs.get("model", "")
     model_lower = model.lower().replace("openai/", "")
@@ -350,24 +440,28 @@ def _normalize_model_params(kwargs: dict) -> None:
     if needs_completion_tokens and "max_tokens" in kwargs:
         kwargs["max_completion_tokens"] = kwargs.pop("max_tokens")
 
+    if model_lower == "kimi-k2.5" and "temperature" in kwargs:
+        kwargs.pop("temperature")
+        logger.debug("kimi-k2.5 不支持自定义 temperature，已移除")
+
 
 def _ensure_direct_openai_kwargs(kwargs: dict) -> None:
-    """为 openai/ 前缀模型补全 api_base / api_key，确保走直连路径。
+    """为非 litellm 原生模型补全 api_base / api_key，确保走直连路径。
 
-    litellm 会将模型名 lowercase，导致 SiliconFlow 等对大小写
-    敏感的 API 返回 unknown_model 错误。此函数从环境变量中补全
-    缺失的连接参数，使 robust_completion 走 _direct_openai_completion。
+    litellm 不认识 kimi-* 等模型名，会抛出 Provider NOT provided 错误。
+    此函数检测此类模型并自动从环境变量补全 api_base / api_key。
     """
     model = kwargs.get("model", "")
-    if not model.startswith("openai/"):
-        return
     if kwargs.get("api_base"):
         return
-    env_base = os.getenv("THEIA_EXTRACT_API_BASE")
+    needs_direct = model.startswith("openai/") or model.startswith("kimi-")
+    if not needs_direct:
+        return
+    env_base = os.getenv("THEIA_API_BASE") or os.getenv("THEIA_EXTRACT_API_BASE")
     if env_base:
         kwargs["api_base"] = env_base
         if not kwargs.get("api_key"):
-            kwargs.setdefault("api_key", os.getenv("THEIA_EXTRACT_API_KEY"))
+            kwargs.setdefault("api_key", os.getenv("THEIA_API_KEY") or os.getenv("THEIA_EXTRACT_API_KEY"))
 
 
 def _try_fallback(kwargs: dict, original_exc: Exception) -> object | None:

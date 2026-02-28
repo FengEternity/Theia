@@ -42,6 +42,8 @@ def _extract_multi_pass(
     max_retries: int,
     api_key: str | None = None,
     api_base: str | None = None,
+    scan_api_key: str | None = None,
+    scan_api_base: str | None = None,
     figure_api_key: str | None = None,
     figure_api_base: str | None = None,
     on_token: Callable[[str], None] | None = None,
@@ -66,8 +68,8 @@ def _extract_multi_pass(
             headings,
             model=scan_model,
             max_retries=max_retries,
-            api_key=api_key,
-            api_base=api_base,
+            api_key=scan_api_key or api_key,
+            api_base=scan_api_base or api_base,
             on_token=on_token,
         )
     except Exception as exc:
@@ -158,6 +160,14 @@ def _extract_multi_pass(
 
     # --- 融合验证 ---
     summary = _synthesize(summary, overview, markdown_content)
+    logger.info(
+        "融合完成: title='%s', key_steps=%d, formulas=%d, datasets=%d, baselines=%d",
+        summary.title[:50] + "..." if summary.title and len(summary.title) > 50 else (summary.title or ""),
+        len(summary.method.key_steps),
+        len(summary.method.formulas),
+        len(summary.results.datasets),
+        len(summary.results.baselines),
+    )
 
     evaluator = ExtractionEvaluator(markdown_content, labeled_sections)
     result = evaluator.evaluate_fast(summary)
@@ -258,6 +268,10 @@ def _pass2_deep_extract(
     """
     truncated_sections = budget_truncate(dict(labeled_sections), max_chars=80_000)
     focused_text = "\n\n".join(truncated_sections.values())
+
+    for label, content in truncated_sections.items():
+        if content:
+            logger.info("Pass 2 提取章节 [%s]: %d 字符", label, len(content))
 
     chunk_threshold = int(os.getenv("THEIA_CHUNK_THRESHOLD", "50000"))
     estimated_tokens = _estimate_tokens(focused_text)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections import Counter
 import re
 import threading
 from pathlib import Path
@@ -45,8 +46,12 @@ class PipelineState(TypedDict, total=False):
     llm_model: str
     extract_model: str
     scan_model: str
-    script_model: str
     figure_model: str
+    story_model: str
+    scene_model: str
+    gate_model: str
+    judge_model: str
+    script_model: str
     language: str
     tts_voice: str | None
     mineru_backend: str
@@ -60,6 +65,24 @@ class PipelineState(TypedDict, total=False):
     theme: str
     speech_rate: int
     interactive_mode: bool
+
+    # ---- API 凭据（各步骤独立，由 LLMConfig 解析后注入） ----
+    extract_api_key: str | None
+    extract_api_base: str | None
+    scan_api_key: str | None
+    scan_api_base: str | None
+    figure_api_key: str | None
+    figure_api_base: str | None
+    story_api_key: str | None
+    story_api_base: str | None
+    scene_api_key: str | None
+    scene_api_base: str | None
+    gate_api_key: str | None
+    gate_api_base: str | None
+    judge_api_key: str | None
+    judge_api_base: str | None
+    script_api_key: str | None
+    script_api_base: str | None
 
     # ---- 中间产物（各节点自动填充，Phase 3 可人工编辑） ----
     detected_language: str
@@ -263,8 +286,8 @@ def extract_node(state: PipelineState) -> dict:
                 pass
 
     if summary is None:
-        model = state.get("extract_model") or state.get("llm_model", "gpt-4o")
-        scan_model = state.get("scan_model") or "gpt-4o-mini"
+        model = state.get("extract_model") or state.get("llm_model", "kimi-k2-0905-preview")
+        scan_model = state.get("scan_model") or model
 
         images_dir = None
         parsed_dir = state.get("parsed_dir")
@@ -287,6 +310,8 @@ def extract_node(state: PipelineState) -> dict:
             content_list=content_list,
             api_key=state.get("extract_api_key"),
             api_base=state.get("extract_api_base"),
+            scan_api_key=state.get("scan_api_key"),
+            scan_api_base=state.get("scan_api_base"),
             figure_api_key=state.get("figure_api_key"),
             figure_api_base=state.get("figure_api_base"),
             on_token=_make_on_token(str(workspace), "extract"),
@@ -309,6 +334,15 @@ def extract_node(state: PipelineState) -> dict:
     out.write_text(summary_json, encoding="utf-8")
 
     logger.info("已提取: '%s' by %s", summary.title, ", ".join(summary.authors[:3]))
+    logger.info(
+        "提取结果: title='%s', authors=%d, method_steps=%d, formulas=%d, figures=%d, contributions=%d",
+        summary.title[:60],
+        len(summary.authors),
+        len(summary.method.key_steps),
+        len(summary.method.formulas),
+        len(summary.figures),
+        len(summary.contributions),
+    )
 
     # --- 质量门控（作为提取流程的一部分） ---
     from .quality.gate import run_quality_gate
@@ -371,7 +405,8 @@ def script_node(state: PipelineState) -> dict:
     logger.info("=" * 60)
 
     summary = PaperSummary.model_validate_json(state["paper_summary_json"])
-    model = state.get("script_model") or state.get("llm_model", "gpt-4o-mini")
+    story_model = state.get("story_model") or state.get("script_model") or state.get("llm_model", "kimi-k2-0905-preview")
+    scene_model = state.get("scene_model") or state.get("script_model") or state.get("llm_model", "kimi-k2-0905-preview")
     lang = state.get("detected_language") or state.get("language", "zh")
     preset = state.get("video_preset", "landscape")
     w, h = VIDEO_PRESETS.get(preset, (1920, 1080))
@@ -380,7 +415,10 @@ def script_node(state: PipelineState) -> dict:
     use_cache = state.get("use_cache", True)
     theme = state.get("theme", "academic")
     narration_style = state.get("narration_style", "default")
-    logger.info("脚本参数: theme=%s, narration_style=%s, model=%s, lang=%s", theme, narration_style, model, lang)
+    logger.info(
+        "脚本参数: theme=%s, narration_style=%s, story_model=%s, scene_model=%s, lang=%s",
+        theme, narration_style, story_model, scene_model, lang,
+    )
     script_cache_key = (
         cache_key_for_content(
             state["paper_summary_json"],
@@ -403,9 +441,15 @@ def script_node(state: PipelineState) -> dict:
             """将 Agent 步骤进度转发为 pipeline 进度通知。"""
             _notify(state, 3, "script", "progress", message, agent_name=agent)
 
+        logger.info("脚本生成: story_model=%s, scene_model=%s", story_model, scene_model)
         script = generate_video_script(
             summary,
-            model=model,
+            story_model=story_model,
+            scene_model=scene_model,
+            story_api_key=state.get("story_api_key"),
+            story_api_base=state.get("story_api_base"),
+            scene_api_key=state.get("scene_api_key"),
+            scene_api_base=state.get("scene_api_base"),
             fps=state.get("fps", 30),
             language=lang,
             width=w,
@@ -480,6 +524,9 @@ def script_node(state: PipelineState) -> dict:
 
     if script_cache_key:
         set_cached(workspace, script_cache_key, script)
+
+    type_counts = Counter(s.type.value for s in script.scenes)
+    logger.info("场景类型分布: %s", dict(type_counts))
 
     script_json_str = script.model_dump_json()
 
@@ -566,6 +613,10 @@ def tts_node(state: PipelineState) -> dict:
         speech_rate=state.get("speech_rate", 0),
     )
 
+    audio_count = sum(1 for s in script.scenes if s.audio_file)
+    total_duration = script.total_duration_seconds
+    logger.info("TTS 完成: %d 个音频文件, 总时长 %.1f 秒", audio_count, total_duration)
+
     stem = pdf_stem(state["pdf_path"])
     script_path = workspace / "scripts" / f"{stem}_script.json"
     script_path.parent.mkdir(parents=True, exist_ok=True)
@@ -614,6 +665,9 @@ def visual_director_node(state: PipelineState) -> dict:
         if choreo.scene_index < len(script.scenes):
             script.scenes[choreo.scene_index].choreography = choreo.phases
 
+    updated_indices = [c.scene_index for c in choreographies]
+    logger.info("编排更新场景: %s", updated_indices)
+
     from .output.visual_director import assign_manim_animations
 
     manim_specs = assign_manim_animations(blueprint, narrations, scene_durations_ms)
@@ -634,6 +688,9 @@ def manim_render_node(state: PipelineState) -> dict:
     if not has_manim:
         logger.info("Manim 渲染: 无需渲染的数学动画，跳过")
         return {}
+
+    manim_scenes = [i for i, s in enumerate(script.scenes) if s.manim_animations]
+    logger.info("Manim 动画场景: %s", manim_scenes)
 
     from .output.manim_renderer import render_manim_clips
 
@@ -889,10 +946,14 @@ def run_pipeline(
     output_path: str | Path | None = None,
     *,
     workspace: str | Path | None = None,
-    llm_model: str = "gpt-4o",
+    llm_model: str | None = None,
     extract_model: str | None = None,
     scan_model: str | None = None,
     script_model: str | None = None,
+    story_model: str | None = None,
+    scene_model: str | None = None,
+    gate_model: str | None = None,
+    judge_model: str | None = None,
     language: str = "zh",
     tts_voice: str | None = None,
     mineru_backend: str = "pipeline",
@@ -913,9 +974,13 @@ def run_pipeline(
         output_path: 输出视频路径。
         workspace: 工作目录（默认: ``./workspace``）。
         llm_model: LiteLLM 模型标识符（作为后备）。
-        extract_model: 信息提取模型（默认使用 *llm_model*）。
-        scan_model: Pass 1 快速扫描模型（默认: ``gpt-4o-mini``）。
-        script_model: 脚本生成模型（默认: ``gpt-4o-mini``）。
+        extract_model: Pass 2 信息提取模型。
+        scan_model: Pass 1 快速扫描模型。
+        script_model: 脚本生成模型（story + scene 的通用后备）。
+        story_model: 故事架构师模型。
+        scene_model: 场景编剧模型。
+        gate_model: 质量门控模型。
+        judge_model: L3 评估模型。
         language: 主要语言提示。设为 ``"auto"`` 自动检测。
         tts_voice: Edge TTS 声音名称（*None* 时自动选择）。
         mineru_backend: MinerU 后端（``"pipeline"`` 为 CPU 模式）。
@@ -930,17 +995,35 @@ def run_pipeline(
         包含所有结果的最终流水线状态字典。
     """
     default_cfg = LLMConfig()
+
+    def _pick(explicit: str | None, cfg_val: str) -> str:
+        return explicit if explicit else cfg_val
+
     llm_cfg = LLMConfig(
-        scan_model=scan_model or default_cfg.scan_model,
-        extract_model=extract_model or (llm_model if llm_model != "gpt-4o" else default_cfg.extract_model),
-        script_model=script_model or default_cfg.script_model,
+        scan_model=_pick(scan_model, default_cfg.scan_model),
+        extract_model=_pick(extract_model, default_cfg.extract_model),
         figure_model=default_cfg.figure_model,
+        story_model=_pick(story_model, default_cfg.story_model),
+        scene_model=_pick(scene_model, default_cfg.scene_model),
+        gate_model=_pick(gate_model, default_cfg.gate_model),
+        judge_model=_pick(judge_model, default_cfg.judge_model),
+        script_model=_pick(script_model, default_cfg.script_model),
+        scan_api_key=default_cfg.scan_api_key,
+        scan_api_base=default_cfg.scan_api_base,
         extract_api_key=default_cfg.extract_api_key,
         extract_api_base=default_cfg.extract_api_base,
-        script_api_key=default_cfg.script_api_key,
-        script_api_base=default_cfg.script_api_base,
         figure_api_key=default_cfg.figure_api_key,
         figure_api_base=default_cfg.figure_api_base,
+        story_api_key=default_cfg.story_api_key,
+        story_api_base=default_cfg.story_api_base,
+        scene_api_key=default_cfg.scene_api_key,
+        scene_api_base=default_cfg.scene_api_base,
+        gate_api_key=default_cfg.gate_api_key,
+        gate_api_base=default_cfg.gate_api_base,
+        judge_api_key=default_cfg.judge_api_key,
+        judge_api_base=default_cfg.judge_api_base,
+        script_api_key=default_cfg.script_api_key,
+        script_api_base=default_cfg.script_api_base,
     )
 
     pdf_str = str(pdf_path)
@@ -951,17 +1034,31 @@ def run_pipeline(
     pipeline_input = PipelineInput(
         pdf_path=resolved_pdf,
         workspace=resolved_ws,
-        llm_model=llm_model,
+        llm_model=llm_model or llm_cfg.extract_model,
         extract_model=llm_cfg.extract_model,
         scan_model=llm_cfg.scan_model,
-        script_model=llm_cfg.script_model,
         figure_model=llm_cfg.figure_model,
+        story_model=llm_cfg.story_model,
+        scene_model=llm_cfg.scene_model,
+        gate_model=llm_cfg.gate_model,
+        judge_model=llm_cfg.judge_model,
+        script_model=llm_cfg.script_model,
         extract_api_key=llm_cfg.extract_api_key,
         extract_api_base=llm_cfg.extract_api_base,
-        script_api_key=llm_cfg.script_api_key,
-        script_api_base=llm_cfg.script_api_base,
+        scan_api_key=llm_cfg.scan_api_key,
+        scan_api_base=llm_cfg.scan_api_base,
         figure_api_key=llm_cfg.figure_api_key,
         figure_api_base=llm_cfg.figure_api_base,
+        story_api_key=llm_cfg.story_api_key,
+        story_api_base=llm_cfg.story_api_base,
+        scene_api_key=llm_cfg.scene_api_key,
+        scene_api_base=llm_cfg.scene_api_base,
+        gate_api_key=llm_cfg.gate_api_key,
+        gate_api_base=llm_cfg.gate_api_base,
+        judge_api_key=llm_cfg.judge_api_key,
+        judge_api_base=llm_cfg.judge_api_base,
+        script_api_key=llm_cfg.script_api_key,
+        script_api_base=llm_cfg.script_api_base,
         language=language,
         tts_voice=tts_voice,
         mineru_backend=mineru_backend,
@@ -974,6 +1071,16 @@ def run_pipeline(
         theme=theme,
         speech_rate=speech_rate,
         output_path=str(Path(output_path).resolve()) if output_path else None,
+    )
+
+    logger.info(
+        "流水线配置: extract=%s, scan=%s, figure=%s, story=%s, scene=%s, gate=%s",
+        llm_cfg.extract_model,
+        llm_cfg.scan_model,
+        llm_cfg.figure_model,
+        llm_cfg.story_model,
+        llm_cfg.scene_model,
+        llm_cfg.gate_model,
     )
 
     interactive = pipeline_input.interactive_mode

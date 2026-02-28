@@ -170,9 +170,16 @@ def _targeted_repair(
     on_token: Callable[[str], None] | None = None,
 ) -> PaperSummary:
     """针对薄弱维度进行精准修复。"""
-    model = state.get("extract_model") or state.get("llm_model", "gpt-4o")
-    api_key = state.get("extract_api_key")
-    api_base = state.get("extract_api_base")
+    model = state.get("gate_model") or state.get("extract_model") or state.get("llm_model", "kimi-k2-0905-preview")
+    api_key = state.get("gate_api_key") or state.get("extract_api_key")
+    api_base = state.get("gate_api_base") or state.get("extract_api_base")
+
+    logger.info(
+        "质量修复: dims=%s, model=%s, api_base=%s",
+        weak_dims,
+        model,
+        api_base or "(默认)",
+    )
 
     if "field_completeness" in weak_dims:
         summary = _fill_missing_fields(summary, markdown, model, api_key=api_key, api_base=api_base, on_token=on_token)
@@ -216,6 +223,8 @@ def _fill_missing_fields(
 
     if not missing:
         return summary
+
+    logger.info("字段补全: 发现 %d 个缺失字段: %s", len(missing), missing)
 
     truncated_md = markdown[:15000] if len(markdown) > 15000 else markdown
 
@@ -303,8 +312,9 @@ def _verify_and_fix_entities(
         return summary
 
     logger.info(
-        "发现 %d 个溯源问题 (%d 实体 + %d 声明)，尝试修复",
-        len(all_issues), len(ungrounded_entities), len(ungrounded_claims),
+        "溯源修复: 未溯源实体 %d 个, 未溯源声明 %d 个, 尝试修复",
+        len(ungrounded_entities),
+        len(ungrounded_claims),
     )
 
     truncated_md = markdown[:15000] if len(markdown) > 15000 else markdown
@@ -387,7 +397,11 @@ def _improve_section_coverage(
     if not gaps:
         return summary
 
-    logger.info("章节覆盖不足，尝试从原文补充: %s", gaps)
+    logger.info(
+        "章节覆盖修复: 发现 %d 个不足字段: %s",
+        len(gaps),
+        gaps,
+    )
 
     truncated_md = markdown[:20000] if len(markdown) > 20000 else markdown
 

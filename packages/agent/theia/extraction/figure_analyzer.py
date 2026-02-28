@@ -19,7 +19,11 @@ from ..schemas import Figure, PaperOverview
 logger = logging.getLogger(__name__)
 
 _TEXT_ONLY_MODEL_PATTERNS = [
-    "moonshot",
+    "moonshot-v1",
+    "kimi-k2-0905",
+    "kimi-k2-0711",
+    "kimi-k2-turbo",
+    "kimi-k2-thinking",
     "deepseek-chat",
     "deepseek-coder",
     "qwen-turbo",
@@ -31,16 +35,29 @@ _TEXT_ONLY_MODEL_PATTERNS = [
 ]
 
 
+_KNOWN_VISION_MODELS = [
+    "kimi-k2.5",
+    "gpt-4o",
+    "gpt-4-vision",
+    "gpt-5",
+    "claude-3",
+    "gemini",
+]
+
+
 def _is_vision_model(model: str) -> bool:
     """启发式判断模型是否支持视觉输入。
 
-    已知支持视觉的模型: gpt-4o, gpt-4-vision, claude-3, gemini 等。
-    已知不支持的: moonshot, deepseek-chat, qwen-turbo 等纯文本模型。
-    名称中含 vision/vl 的优先视为视觉模型。
+    已知支持视觉的模型: kimi-k2.5, gpt-4o, claude-3, gemini 等。
+    已知不支持的: moonshot-v1, deepseek-chat, qwen-turbo 等纯文本模型。
+    名称中含 vision/vl 或在白名单中的优先视为视觉模型。
     """
     model_lower = model.lower().replace("openai/", "").replace("anthropic/", "")
 
     if any(kw in model_lower for kw in ("vision", "-vl-", "-vl", "vl-")):
+        return True
+
+    if any(known in model_lower for known in _KNOWN_VISION_MODELS):
         return True
 
     for pattern in _TEXT_ONLY_MODEL_PATTERNS:
@@ -100,7 +117,7 @@ def analyze_figures(
     images_dir: Path,
     paper_overview: PaperOverview,
     *,
-    model: str = "gpt-4o",
+    model: str = "kimi-k2.5",
     max_figures: int = 8,
     api_key: str | None = None,
     api_base: str | None = None,
@@ -123,9 +140,11 @@ def analyze_figures(
     if not figures:
         return []
 
+    logger.info("图表分析: 共 %d 张图, 将分析最多 %d 张, model=%s", len(figures), max_figures, model)
+
     if not _is_vision_model(model):
         logger.warning(
-            "图表分析跳过：模型 %s 不支持图片输入。请设置 THEIA_FIGURE_MODEL 为支持视觉的模型（如 gpt-4o）",
+            "图表分析跳过：模型 %s 不支持图片输入。请设置 THEIA_FIGURE_MODEL 为支持视觉的模型（如 kimi-k2.5）",
             model,
         )
         return _fallback_figures(figures[:max_figures])
@@ -143,8 +162,11 @@ def analyze_figures(
         )
     candidates = candidates[:max_figures]
 
-    def _process_one(item: dict) -> Figure:
+    def _process_one(args: tuple[int, dict]) -> Figure:
+        idx, item = args
         fig_data = item["fig"]
+        figure_name = Path(fig_data.get("path", "unknown")).name
+        logger.info("分析图表 %d/%d: %s", idx + 1, len(candidates), figure_name)
         img_path: Path = item["path"]
         try:
             result = _analyze_single_figure(
@@ -174,10 +196,14 @@ def analyze_figures(
 
     workers = min(2, len(candidates))
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        analyzed = list(executor.map(_process_one, candidates))
+        analyzed = list(executor.map(_process_one, enumerate(candidates)))
 
     analyzed.sort(key=lambda f: f.importance, reverse=True)
-    logger.info("图表分析完成: %d/%d 张 (并行 workers=%d)", len(analyzed), len(candidates), workers)
+    importance_counts: dict[int, int] = {}
+    for f in analyzed:
+        importance_counts[f.importance] = importance_counts.get(f.importance, 0) + 1
+    dist_str = ", ".join(f"importance {k}: {importance_counts[k]}" for k in sorted(importance_counts, reverse=True))
+    logger.info("图表分析完成: %d/%d 张 (并行 workers=%d), 重要性分布: %s", len(analyzed), len(candidates), workers, dist_str)
     return analyzed
 
 
@@ -187,7 +213,7 @@ def reanalyze_single_figure(
     core_idea: str,
     *,
     caption: str = "",
-    model: str = "gpt-4o",
+    model: str = "kimi-k2.5",
     api_key: str | None = None,
     api_base: str | None = None,
 ) -> Figure:
@@ -197,7 +223,7 @@ def reanalyze_single_figure(
     """
     if not _is_vision_model(model):
         raise ValueError(
-            f"模型 {model} 不支持图片输入。请设置 THEIA_FIGURE_MODEL 为支持视觉的模型（如 gpt-4o）"
+            f"模型 {model} 不支持图片输入。请设置 THEIA_FIGURE_MODEL 为支持视觉的模型（如 kimi-k2.5）"
         )
 
     name = Path(figure_path).name
@@ -460,7 +486,7 @@ def _analyze_single_figure(
                 ],
             }
         ],
-        "max_tokens": 1024,
+        "max_tokens": 2048,
         "temperature": 0.1,
     }
     if api_key:

@@ -380,20 +380,35 @@ class PipelineInput(BaseModel):
     output_path: str | None = None
     interactive_mode: bool = False
 
-    extract_model: str = "gpt-4o"
-    scan_model: str = "gpt-4o-mini"
-    script_model: str = "gpt-4o-mini"
-    figure_model: str = "gpt-4o"
+    # --- 模型配置（每个步骤独立） ---
+    extract_model: str = "kimi-k2-0905-preview"
+    scan_model: str = "kimi-k2-0905-preview"
+    figure_model: str = "kimi-k2.5"
+    story_model: str = "kimi-k2-0905-preview"
+    scene_model: str = "kimi-k2-0905-preview"
+    gate_model: str = "kimi-k2-0905-preview"
+    judge_model: str = "kimi-k2-0905-preview"
+    script_model: str = "kimi-k2-0905-preview"
     tts_voice: str | None = None
     mineru_backend: str = "pipeline"
 
-    llm_model: str = "gpt-4o"
+    llm_model: str = "kimi-k2-0905-preview"
     extract_api_key: str | None = None
     extract_api_base: str | None = None
-    script_api_key: str | None = None
-    script_api_base: str | None = None
+    scan_api_key: str | None = None
+    scan_api_base: str | None = None
     figure_api_key: str | None = None
     figure_api_base: str | None = None
+    story_api_key: str | None = None
+    story_api_base: str | None = None
+    scene_api_key: str | None = None
+    scene_api_base: str | None = None
+    gate_api_key: str | None = None
+    gate_api_base: str | None = None
+    judge_api_key: str | None = None
+    judge_api_base: str | None = None
+    script_api_key: str | None = None
+    script_api_base: str | None = None
 
 
 # ---------------------------------------------------------------------------

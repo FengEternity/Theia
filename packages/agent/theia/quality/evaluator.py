@@ -519,7 +519,7 @@ class ExtractionEvaluator:
         self,
         summary: PaperSummary,
         *,
-        judge_model: str = "openai/gpt-5.2-chat",
+        judge_model: str = "kimi-k2-0905-preview",
         judge_api_key: str | None = None,
         judge_api_base: str | None = None,
         on_token: Callable[[str], None] | None = None,
@@ -547,13 +547,28 @@ class ExtractionEvaluator:
         if judge_api_base:
             kwargs["api_base"] = judge_api_base
 
+        logger.info(
+            "L3 评估: judge_model=%s, api_base=%s",
+            judge_model,
+            judge_api_base or "(默认)",
+        )
+
         try:
             resp = robust_completion(kwargs, on_token=on_token)
         except Exception as exc:
             logger.warning("L3 Judge 调用失败: %s", exc)
             return L3Score(notes=f"Judge 调用失败: {exc}")
 
-        return self._parse_judge_response(resp.choices[0].message.content or "")
+        result = self._parse_judge_response(resp.choices[0].message.content or "")
+        logger.info(
+            "L3 评估完成: faithfulness=%.2f, coverage=%.2f, insight=%.2f, video_ready=%.2f, total=%.2f",
+            result.faithfulness,
+            result.coverage,
+            result.insight,
+            result.video_ready,
+            result.total,
+        )
+        return result
 
     def _build_judge_context(self) -> str:
         """从原文中抽取关键章节给 Judge，控制在 ~15K 字符。"""
@@ -629,7 +644,7 @@ class ExtractionEvaluator:
         self,
         summary: PaperSummary,
         *,
-        judge_model: str = "openai/gpt-5.2-chat",
+        judge_model: str = "kimi-k2-0905-preview",
         judge_api_key: str | None = None,
         judge_api_base: str | None = None,
     ) -> EvalResult:

@@ -50,7 +50,12 @@ MIN_SCENE_SECONDS: dict[str, float] = {
 def generate_video_script(
     summary: PaperSummary,
     *,
-    model: str = "gpt-4o-mini",
+    story_model: str = "kimi-k2-0905-preview",
+    scene_model: str = "kimi-k2-0905-preview",
+    story_api_key: str | None = None,
+    story_api_base: str | None = None,
+    scene_api_key: str | None = None,
+    scene_api_base: str | None = None,
     fps: int = 30,
     language: str = "zh",
     width: int = 1920,
@@ -72,7 +77,10 @@ def generate_video_script(
 
     参数:
         summary: 提取的论文信息。
-        model: LiteLLM 模型标识符。
+        story_model: 故事架构师模型。
+        scene_model: 场景编剧模型。
+        story_api_key / story_api_base: 故事架构师 API 凭据。
+        scene_api_key / scene_api_base: 场景编剧 API 凭据。
         fps: 视频帧率。
         language: 旁白语言。
         narration_style: 旁白风格。
@@ -96,7 +104,13 @@ def generate_video_script(
     _report("story_architect", "正在规划叙事结构...")
 
     # --- Agent 1: Story Architect ---
-    blueprint = plan_story(summary, model=model, on_token=on_token)
+    blueprint = plan_story(
+        summary,
+        model=story_model,
+        api_key=story_api_key,
+        api_base=story_api_base,
+        on_token=on_token,
+    )
     _report(
         "story_architect",
         f"叙事规划完成: {len(blueprint.scenes)} 个场景, 弧线: {blueprint.narrative_arc[:40]}",
@@ -104,7 +118,7 @@ def generate_video_script(
 
     # --- Agent 2 + 3 + 4: 编写-编排-审核循环 ---
     cps = CHARS_PER_SECOND_ZH if language == "zh" else CHARS_PER_SECOND_EN
-    max_rounds = 2
+    max_rounds = 1
     narrations = None
     choreographies = None
     review_feedback: str | None = None
@@ -115,7 +129,9 @@ def generate_video_script(
         narrations = write_scenes(
             blueprint,
             summary,
-            model=model,
+            model=scene_model,
+            api_key=scene_api_key,
+            api_base=scene_api_base,
             narration_style=narration_style,
             on_token=on_token,
             review_feedback=review_feedback,

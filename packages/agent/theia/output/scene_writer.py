@@ -36,7 +36,9 @@ def write_scenes(
     blueprint: StoryBlueprint,
     summary: PaperSummary,
     *,
-    model: str = "gpt-4o-mini",
+    model: str = "kimi-k2-0905-preview",
+    api_key: str | None = None,
+    api_base: str | None = None,
     narration_style: str = "default",
     on_token: Callable[[str], None] | None = None,
     review_feedback: str | None = None,
@@ -47,6 +49,8 @@ def write_scenes(
         blueprint: 故事架构师输出的叙事蓝图。
         summary: 提取的论文信息。
         model: LiteLLM 模型标识符。
+        api_key: API 密钥（可选，覆盖环境变量）。
+        api_base: API base URL（可选，覆盖环境变量）。
         narration_style: 旁白风格。
         on_token: 流式 token 回调。
         review_feedback: 上一轮审核的反馈（若有）。
@@ -66,6 +70,12 @@ def write_scenes(
         model,
         narration_style,
     )
+    logger.info(
+        "场景编剧: 输入 %d 个场景, model=%s, api_base=%s",
+        len(blueprint.scenes),
+        model,
+        api_base or "(默认)",
+    )
 
     kwargs: dict = {
         "model": model,
@@ -77,6 +87,10 @@ def write_scenes(
         "temperature": 0.5,
         "response_format": {"type": "json_object"},
     }
+    if api_key:
+        kwargs["api_key"] = api_key
+    if api_base:
+        kwargs["api_base"] = api_base
 
     response = robust_completion(kwargs, on_token=on_token)
 
@@ -112,6 +126,14 @@ def write_scenes(
         )
 
     _validate_chinese_narrations(narrations)
+
+    for i, narr in enumerate(narrations):
+        logger.debug(
+            "  场景 %d: %d 字, data keys=%s",
+            i,
+            len(narr.narration),
+            list(narr.data.keys()),
+        )
 
     logger.info(
         "场景编剧完成: %d 个场景, 总字数 %d",

@@ -35,11 +35,11 @@ def main() -> None:
 @click.option(
     "-m",
     "--model",
-    default=lambda: os.getenv("THEIA_EXTRACT_MODEL", "gpt-4o"),
+    default=lambda: os.getenv("THEIA_EXTRACT_MODEL", "kimi-k2-0905-preview"),
     help="LLM 模型（LiteLLM 标识符，作为后备）。",
 )
 @click.option("--extract-model", default=None, help="论文提取模型（默认同 -m）。")
-@click.option("--script-model", default=None, help="脚本生成模型（默认: gpt-4o-mini）。")
+@click.option("--script-model", default=None, help="脚本生成模型。")
 @click.option(
     "-l", "--language", default="zh", type=click.Choice(["zh", "en", "auto"]), help="主要语言。'auto' 为自动检测。"
 )
@@ -54,7 +54,7 @@ def main() -> None:
 )
 @click.option("--skip-tts", is_flag=True, help="跳过 TTS 语音合成。")
 @click.option("--skip-render", is_flag=True, help="跳过视频渲染。")
-@click.option("--scan-model", default=None, help="Pass 1 快速扫描模型（默认: gpt-4o-mini）。")
+@click.option("--scan-model", default=None, help="Pass 1 快速扫描模型。")
 @click.option(
     "--narration-style",
     default=lambda: os.getenv("THEIA_NARRATION_STYLE", "default"),
@@ -144,7 +144,7 @@ def parse(pdf_path: Path, output_dir: Path, lang: str, backend: str, verbose: bo
 
 @main.command()
 @click.argument("pdf_path", type=click.Path(exists=True, path_type=Path))
-@click.option("-m", "--model", default="gpt-4o", help="LLM 模型。")
+@click.option("-m", "--model", default="kimi-k2-0905-preview", help="LLM 模型。")
 @click.option("-w", "--workspace", type=click.Path(path_type=Path), default="./workspace")
 @click.option("--backend", default="pipeline", help="MinerU 后端。")
 @click.option("--scan-model", default=None, help="Pass 1 快速扫描模型。")

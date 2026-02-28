@@ -6,52 +6,174 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
+
+
+def _env(specific: str, *fallbacks: str) -> str | None:
+    """按优先级查找环境变量，返回首个非空值。"""
+    val = os.getenv(specific)
+    if val:
+        return val
+    for fb in fallbacks:
+        val = os.getenv(fb)
+        if val:
+            return val
+    return None
+
+
+def _env_model(specific: str, *fallbacks: str, default: str = "kimi-k2-0905-preview") -> str:
+    return _env(specific, *fallbacks) or default
+
+
+def _env_key(specific: str, *fallbacks: str) -> str | None:
+    return _env(specific, *fallbacks, "THEIA_API_KEY")
+
+
+def _env_base(specific: str, *fallbacks: str) -> str | None:
+    return _env(specific, *fallbacks, "THEIA_API_BASE")
 
 
 @dataclass
 class LLMConfig:
     """各步骤的模型配置。
 
-    默认值可通过环境变量或 CLI 参数覆盖。
-    ``scan_model`` 用于 Pass 1 快速扫描（轻量），
-    ``extract_model`` 用于 Pass 2 深度提取和 Pass 3 图表分析（强模型），
-    ``script_model`` 用于旁白生成（较简单的创意任务）。
+    每个流水线步骤拥有独立的 model / api_key / api_base 三元组。
+    查找优先级：步骤专属环境变量 → 通用环境变量 (THEIA_API_KEY / THEIA_API_BASE) → 硬编码默认值。
+
+    步骤列表:
+      - ``scan``    : Pass 1 快速扫描
+      - ``extract`` : Pass 2 深度提取
+      - ``figure``  : Pass 3 图表分析（需要多模态/视觉模型）
+      - ``story``   : 故事架构师
+      - ``scene``   : 场景编剧
+      - ``gate``    : 质量门控修复
+      - ``judge``   : L3 深度评估
     """
 
-    extract_model: str = field(default_factory=lambda: os.getenv("THEIA_EXTRACT_MODEL", "gpt-4o"))
+    # --- 提取阶段 ---
     scan_model: str = field(
-        default_factory=lambda: os.getenv(
-            "THEIA_SCAN_MODEL",
-            os.getenv("THEIA_EXTRACT_MODEL", "gpt-4o"),
-        )
+        default_factory=lambda: _env_model("THEIA_SCAN_MODEL", "THEIA_EXTRACT_MODEL"),
     )
-    script_model: str = field(default_factory=lambda: os.getenv("THEIA_SCRIPT_MODEL", "gpt-4o-mini"))
-    figure_model: str = field(default_factory=lambda: os.getenv("THEIA_FIGURE_MODEL", "gpt-4o"))
+    scan_api_key: str | None = field(
+        default_factory=lambda: _env_key("THEIA_SCAN_API_KEY", "THEIA_EXTRACT_API_KEY"),
+    )
+    scan_api_base: str | None = field(
+        default_factory=lambda: _env_base("THEIA_SCAN_API_BASE", "THEIA_EXTRACT_API_BASE"),
+    )
 
-    extract_api_key: str | None = field(default_factory=lambda: os.getenv("THEIA_EXTRACT_API_KEY"))
-    extract_api_base: str | None = field(default_factory=lambda: os.getenv("THEIA_EXTRACT_API_BASE"))
-    script_api_key: str | None = field(default_factory=lambda: os.getenv("THEIA_SCRIPT_API_KEY"))
-    script_api_base: str | None = field(default_factory=lambda: os.getenv("THEIA_SCRIPT_API_BASE"))
+    extract_model: str = field(
+        default_factory=lambda: _env_model("THEIA_EXTRACT_MODEL"),
+    )
+    extract_api_key: str | None = field(
+        default_factory=lambda: _env_key("THEIA_EXTRACT_API_KEY"),
+    )
+    extract_api_base: str | None = field(
+        default_factory=lambda: _env_base("THEIA_EXTRACT_API_BASE"),
+    )
+
+    figure_model: str = field(
+        default_factory=lambda: _env_model("THEIA_FIGURE_MODEL", default="kimi-k2.5"),
+    )
     figure_api_key: str | None = field(
-        default_factory=lambda: os.getenv(
-            "THEIA_FIGURE_API_KEY",
-            os.getenv("THEIA_EXTRACT_API_KEY"),
-        )
+        default_factory=lambda: _env_key("THEIA_FIGURE_API_KEY", "THEIA_EXTRACT_API_KEY"),
     )
     figure_api_base: str | None = field(
-        default_factory=lambda: os.getenv(
-            "THEIA_FIGURE_API_BASE",
-            os.getenv("THEIA_EXTRACT_API_BASE"),
-        )
+        default_factory=lambda: _env_base("THEIA_FIGURE_API_BASE", "THEIA_EXTRACT_API_BASE"),
     )
+
+    # --- 脚本生成阶段 ---
+    story_model: str = field(
+        default_factory=lambda: _env_model("THEIA_STORY_MODEL", "THEIA_SCRIPT_MODEL"),
+    )
+    story_api_key: str | None = field(
+        default_factory=lambda: _env_key("THEIA_STORY_API_KEY", "THEIA_SCRIPT_API_KEY"),
+    )
+    story_api_base: str | None = field(
+        default_factory=lambda: _env_base("THEIA_STORY_API_BASE", "THEIA_SCRIPT_API_BASE"),
+    )
+
+    scene_model: str = field(
+        default_factory=lambda: _env_model("THEIA_SCENE_MODEL", "THEIA_SCRIPT_MODEL"),
+    )
+    scene_api_key: str | None = field(
+        default_factory=lambda: _env_key("THEIA_SCENE_API_KEY", "THEIA_SCRIPT_API_KEY"),
+    )
+    scene_api_base: str | None = field(
+        default_factory=lambda: _env_base("THEIA_SCENE_API_BASE", "THEIA_SCRIPT_API_BASE"),
+    )
+
+    # --- 质量控制阶段 ---
+    gate_model: str = field(
+        default_factory=lambda: _env_model("THEIA_GATE_MODEL", "THEIA_EXTRACT_MODEL"),
+    )
+    gate_api_key: str | None = field(
+        default_factory=lambda: _env_key("THEIA_GATE_API_KEY", "THEIA_EXTRACT_API_KEY"),
+    )
+    gate_api_base: str | None = field(
+        default_factory=lambda: _env_base("THEIA_GATE_API_BASE", "THEIA_EXTRACT_API_BASE"),
+    )
+
+    judge_model: str = field(
+        default_factory=lambda: _env_model("THEIA_JUDGE_MODEL", "THEIA_EXTRACT_MODEL"),
+    )
+    judge_api_key: str | None = field(
+        default_factory=lambda: _env_key("THEIA_JUDGE_API_KEY", "THEIA_EXTRACT_API_KEY"),
+    )
+    judge_api_base: str | None = field(
+        default_factory=lambda: _env_base("THEIA_JUDGE_API_BASE", "THEIA_EXTRACT_API_BASE"),
+    )
+
+    # --- 向后兼容 ---
+    script_model: str = field(
+        default_factory=lambda: _env_model("THEIA_SCRIPT_MODEL"),
+    )
+    script_api_key: str | None = field(
+        default_factory=lambda: _env_key("THEIA_SCRIPT_API_KEY"),
+    )
+    script_api_base: str | None = field(
+        default_factory=lambda: _env_base("THEIA_SCRIPT_API_BASE"),
+    )
+
+    def __post_init__(self) -> None:
+        """记录解析后的模型配置，便于排查问题。"""
+        models = {
+            "scan": self.scan_model,
+            "extract": self.extract_model,
+            "figure": self.figure_model,
+            "story": self.story_model,
+            "scene": self.scene_model,
+            "gate": self.gate_model,
+            "judge": self.judge_model,
+        }
+        unique_models = set(models.values())
+        api_base = self.extract_api_base or "(默认)"
+        logger.info(
+            "LLMConfig 已初始化: %d 个角色, %d 个不同模型, api_base=%s",
+            len(models), len(unique_models), api_base,
+        )
+        for role, model in models.items():
+            role_base = getattr(self, f"{role}_api_base", None)
+            base_label = role_base if role_base else "(通用)"
+            logger.debug("  %s: model=%s, api_base=%s", role, model, base_label)
 
     @classmethod
     def from_single_model(cls, model: str) -> LLMConfig:
         """所有步骤使用同一模型。"""
-        return cls(scan_model=model, extract_model=model, script_model=model)
+        return cls(
+            scan_model=model,
+            extract_model=model,
+            figure_model=model,
+            story_model=model,
+            scene_model=model,
+            gate_model=model,
+            judge_model=model,
+            script_model=model,
+        )
 
 
 def detect_language(text: str) -> str:

@@ -126,6 +126,7 @@ def _extract_single_section(
     on_token: Callable[[str], None] | None = None,
 ) -> dict | None:
     """对单个章节进行信息提取，返回结构化 dict。"""
+    logger.info("提取章节 [%s]: %d 字符", section_label, len(section_text))
     user_content = PASS2_SECTION_PROMPT.format(
         section_label=section_label,
         paper_type=overview.paper_type,
@@ -196,6 +197,7 @@ def _merge_section_results(
 
     优先使用 LLM 融合以保证连贯性；LLM 失败时降级到规则合并。
     """
+    logger.info("融合 %d 个章节提取结果", len(section_results))
     compressed = []
     for r in section_results:
         c = {k: v for k, v in r.items() if v and v != [] and v != "" and k != "_label"}

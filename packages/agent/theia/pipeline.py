@@ -614,7 +614,32 @@ def visual_director_node(state: PipelineState) -> dict:
         if choreo.scene_index < len(script.scenes):
             script.scenes[choreo.scene_index].choreography = choreo.phases
 
+    from .output.visual_director import assign_manim_animations
+
+    manim_specs = assign_manim_animations(blueprint, narrations, scene_durations_ms)
+    for i, specs in enumerate(manim_specs):
+        if i < len(script.scenes) and specs:
+            script.scenes[i].manim_animations = specs
+
     logger.info("视觉导演: 已用 word_timings 更新 %d 个场景的动画编排", len(choreographies))
+
+    return {"video_script_json": script.model_dump_json()}
+
+
+def manim_render_node(state: PipelineState) -> dict:
+    """节点 4.6: 使用 Manim 预渲染数学动画片段。"""
+    script = VideoScript.model_validate_json(state["video_script_json"])
+
+    has_manim = any(s.manim_animations for s in script.scenes)
+    if not has_manim:
+        logger.info("Manim 渲染: 无需渲染的数学动画，跳过")
+        return {}
+
+    from .output.manim_renderer import render_manim_clips
+
+    _notify(state, 5, "render", "progress", "使用 Manim 预渲染数学动画片段", progress_pct=10)
+    workspace = Path(state["workspace"])
+    script = render_manim_clips(script, workspace, quality="medium_quality")
 
     return {"video_script_json": script.model_dump_json()}
 
@@ -718,6 +743,7 @@ def build_graph(*, with_checkpointer: bool = False, interactive: bool = False) -
     builder.add_node("review_script_node", review_script_node)
     builder.add_node("tts_node", tts_node)
     builder.add_node("visual_director_node", visual_director_node)
+    builder.add_node("manim_render_node", manim_render_node)
     builder.add_node("review_tts_node", review_tts_node)
     builder.add_node("render_node", render_node)
 
@@ -734,7 +760,8 @@ def build_graph(*, with_checkpointer: bool = False, interactive: bool = False) -
     builder.add_edge("script_node", "review_script_node")
     builder.add_edge("review_script_node", "tts_node")
     builder.add_edge("tts_node", "visual_director_node")
-    builder.add_edge("visual_director_node", "review_tts_node")
+    builder.add_edge("visual_director_node", "manim_render_node")
+    builder.add_edge("manim_render_node", "review_tts_node")
     builder.add_edge("review_tts_node", "render_node")
     builder.add_edge("render_node", END)
 
@@ -760,6 +787,7 @@ _ALL_NODE_FUNCS = {
     "review_script_node": review_script_node,
     "tts_node": tts_node,
     "visual_director_node": visual_director_node,
+    "manim_render_node": manim_render_node,
     "review_tts_node": review_tts_node,
     "render_node": render_node,
 }
@@ -772,6 +800,7 @@ _STEP_CHAIN = [
     "review_script_node",
     "tts_node",
     "visual_director_node",
+    "manim_render_node",
     "review_tts_node",
     "render_node",
 ]

@@ -154,6 +154,45 @@ class SceneType(str, Enum):
     CODE_DEMO = "code_demo"
 
 
+# ---------------------------------------------------------------------------
+# Manim 动画集成模型
+# ---------------------------------------------------------------------------
+
+
+class ManimAnimationType(str, Enum):
+    FORMULA_WRITE = "formula_write"
+    FORMULA_TRANSFORM = "formula_transform"
+    FORMULA_DERIVATION = "formula_derivation"
+    FORMULA_HIGHLIGHT = "formula_highlight"
+    FORMULA_MULTILINE = "formula_multiline"
+    GRAPH_PLOT = "graph_plot"
+    COORDINATE_SYSTEM = "coordinate_system"
+    GEOMETRY = "geometry"
+    VECTOR_FIELD = "vector_field"
+    THREE_D_SURFACE = "3d_surface"
+    CUSTOM = "custom"
+
+
+class ManimAnimationSpec(BaseModel):
+    """描述一个需要 Manim 渲染的动画。由 Visual Director 生成。"""
+
+    type: ManimAnimationType
+    formulas: list[str] = Field(default_factory=list, description="LaTeX 公式列表")
+    config: dict[str, Any] = Field(default_factory=dict, description="动画类型专属配置")
+    duration_hint_sec: float = Field(default=3.0, description="期望时长（秒）")
+    position: str = Field(default="center", description="在场景中的位置: center|left|right|full")
+
+
+class ManimClip(BaseModel):
+    """Manim 渲染后的视频片段元数据。"""
+
+    clip_path: str = Field(description="相对于 workspace 的视频文件路径")
+    start_ms: int = Field(default=0, description="在场景中开始播放的时间（毫秒）")
+    duration_ms: int = Field(description="片段时长（毫秒）")
+    position: str = Field(default="center", description="在场景中的位置: center|left|right|full")
+    opacity: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
 class WordTiming(BaseModel):
     text: str
     offset_ms: int = Field(description="相对于场景音频开始的偏移（毫秒）")
@@ -170,6 +209,14 @@ class Scene(BaseModel):
     choreography: list[AnimationPhase] = Field(
         default_factory=list,
         description="视觉导演生成的动画编排阶段（空则使用组件默认时序）",
+    )
+    manim_animations: list[ManimAnimationSpec] = Field(
+        default_factory=list,
+        description="需要 Manim 预渲染的动画规格（由 Visual Director 填充）",
+    )
+    manim_clips: list[ManimClip] = Field(
+        default_factory=list,
+        description="Manim 渲染后的视频片段（由 manim_render_node 填充）",
     )
 
 

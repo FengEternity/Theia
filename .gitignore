@@ -33,5 +33,6 @@ Thumbs.db
 # Remotion runtime artifacts
 packages/video/public/audio/
 packages/video/public/figures/
+packages/video/public/manim_clips/
 packages/video/public/video_script.json
 packages/video/public/_render_props.json

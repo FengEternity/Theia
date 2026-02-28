@@ -83,6 +83,15 @@ export const AnimationPhase = z.object({
 });
 export type AnimationPhase = z.infer<typeof AnimationPhase>;
 
+export const ManimClip = z.object({
+  clipPath: z.string(),
+  startMs: z.number().default(0),
+  durationMs: z.number(),
+  position: z.string().default("center"),
+  opacity: z.number().default(1.0),
+});
+export type ManimClip = z.infer<typeof ManimClip>;
+
 export const Scene = z.object({
   type: SceneType,
   durationInFrames: z.number().int().positive(),
@@ -91,6 +100,7 @@ export const Scene = z.object({
   data: z.record(z.string(), z.unknown()),
   wordTimings: z.array(WordTiming).default([]),
   choreography: z.array(AnimationPhase).default([]),
+  manimClips: z.array(ManimClip).default([]),
 });
 export type Scene = z.infer<typeof Scene>;
 

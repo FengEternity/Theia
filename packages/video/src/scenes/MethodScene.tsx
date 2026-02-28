@@ -1,10 +1,31 @@
+import "katex/dist/katex.min.css";
+import katex from "katex";
 import { Img, interpolate, useCurrentFrame, spring, useVideoConfig } from "remotion";
-import type { MethodData, AnimationPhase } from "../types/script";
+import type { MethodData, AnimationPhase, ManimClip } from "../types/script";
 import { DynamicBackground } from "../components/DynamicBackground";
+import { FormulaOverlay } from "../components/FormulaOverlay";
+import { ManimClipPlayer } from "../components/ManimClip";
 import { useChoreography } from "../hooks/useChoreography";
 import { useScale } from "../hooks/useScale";
 import { useTheme, resolveSceneStyle } from "../themes";
 import { getIcon } from "../utils/characterAssets";
+
+function renderFormulaHtml(latex: string): string | null {
+  try {
+    let s = latex.trim();
+    if (s.startsWith("\\[")) s = s.slice(2);
+    if (s.endsWith("\\]")) s = s.slice(0, -2);
+    if (s.startsWith("$$")) s = s.slice(2);
+    if (s.endsWith("$$")) s = s.slice(0, -2);
+    return katex.renderToString(s.trim(), {
+      displayMode: false,
+      throwOnError: false,
+      output: "html",
+    });
+  } catch {
+    return null;
+  }
+}
 
 export const MethodScene: React.FC<{
   data: Record<string, unknown>;
@@ -18,6 +39,9 @@ export const MethodScene: React.FC<{
   const scene = resolveSceneStyle(theme, "method");
   const choreo = useChoreography(choreography);
   const { summary, steps } = data as unknown as MethodData;
+  const manimClips = ((data as Record<string, unknown>).manimClips ?? []) as ManimClip[];
+  const hasManim = manimClips.length > 0;
+  const formulas = ((data as Record<string, unknown>).formulas ?? []) as string[];
 
   const headerOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
   const summaryLen = (summary || "").length;
@@ -38,7 +62,22 @@ export const MethodScene: React.FC<{
       showOrb={theme.decoration.showOrb}
       mode={theme.decoration.backgroundStyle === "flat" ? "flat" : undefined}
     >
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: isPortrait ? "center" : "flex-start", padding: pad, fontFamily: theme.fonts.body }}>
+      {/* Manim 动画底层（当有预渲染片段时） */}
+      {hasManim && manimClips.map((clip, i) => (
+        <ManimClipPlayer key={`mc-${i}`} clip={clip} durationInFrames={durationInFrames} />
+      ))}
+
+      {/* 公式浮层：仅在有 Manim 动画时作为叠加层显示 */}
+      {hasManim && formulas.length > 0 && (
+        <FormulaOverlay
+          formula={formulas[0]}
+          position="top-right"
+          delayFrames={15}
+          showLabel="Key Formula"
+        />
+      )}
+
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: isPortrait ? "center" : "flex-start", padding: pad, fontFamily: theme.fonts.body, ...(hasManim ? { maxWidth: "55%", background: "linear-gradient(90deg, rgba(10,10,30,0.88) 0%, rgba(10,10,30,0.5) 80%, transparent 100%)" } : {}) }}>
         <div style={{ display: "flex", alignItems: "center", gap: s(14), marginBottom: s(20), opacity: headerOpacity, flexShrink: 0 }}>
           {showDecorations ? (
             <Img src={getIcon("gear")} style={{ width: s(32), height: s(32) }} />
@@ -67,6 +106,7 @@ export const MethodScene: React.FC<{
               : (frame >= highlightStart && frame < highlightEnd);
             const bgAlpha = isActive ? 0.12 : 0.04;
             const borderAlpha = isActive ? 0.4 : 0.1;
+            const pairedFormula = !hasManim && formulas[i] ? renderFormulaHtml(formulas[i]) : null;
 
             return (
               <div key={i} style={{
@@ -96,11 +136,51 @@ export const MethodScene: React.FC<{
                 }}>
                   {i + 1}
                 </div>
-                <p style={{ color: isActive ? theme.colors.text : theme.colors.textSecondary, fontSize: stepFontSize, fontFamily: theme.fonts.body, lineHeight: 1.5, marginTop: s(4) }}>{step}</p>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ color: isActive ? theme.colors.text : theme.colors.textSecondary, fontSize: stepFontSize, fontFamily: theme.fonts.body, lineHeight: 1.5, marginTop: s(4) }}>{step}</p>
+                  {pairedFormula && (
+                    <div style={{
+                      marginTop: s(10),
+                      padding: `${s(8)}px ${s(14)}px`,
+                      background: "rgba(255,255,255,0.06)",
+                      borderRadius: s(8),
+                      borderLeft: `3px solid ${primaryColor}`,
+                      overflow: "hidden",
+                    }}>
+                      <span
+                        style={{ fontSize: s(26), color: "#e0e0e0", display: "block" }}
+                        dangerouslySetInnerHTML={{ __html: pairedFormula }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
+
+        {/* 多余的公式（步骤数少于公式数时）显示在底部 */}
+        {!hasManim && formulas.length > (steps?.length ?? 0) && (
+          <div style={{ marginTop: s(24), display: "flex", flexWrap: "wrap", gap: s(16), opacity: interpolate(frame, [40, 60], [0, 1], { extrapolateRight: "clamp" }) }}>
+            {formulas.slice(steps?.length ?? 0).map((f, j) => {
+              const html = renderFormulaHtml(f);
+              if (!html) return null;
+              return (
+                <div key={`extra-f-${j}`} style={{
+                  padding: `${s(10)}px ${s(18)}px`,
+                  background: "rgba(255,255,255,0.06)",
+                  borderRadius: s(10),
+                  border: `1px solid rgba(255,255,255,0.1)`,
+                }}>
+                  <span
+                    style={{ fontSize: s(28), color: "#e0e0e0", display: "block" }}
+                    dangerouslySetInnerHTML={{ __html: html }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </DynamicBackground>
   );

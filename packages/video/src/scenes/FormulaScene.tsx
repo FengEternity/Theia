@@ -3,10 +3,12 @@ import { interpolate, useCurrentFrame } from "remotion";
 import katex from "katex";
 import { DynamicBackground } from "../components/DynamicBackground";
 import { InlineLatex } from "../components/InlineLatex";
+import { FormulaOverlay } from "../components/FormulaOverlay";
+import { ManimClipPlayer } from "../components/ManimClip";
 import { useChoreography } from "../hooks/useChoreography";
 import { useScale } from "../hooks/useScale";
 import { useTheme, resolveSceneStyle } from "../themes";
-import type { AnimationPhase } from "../types/script";
+import type { AnimationPhase, ManimClip } from "../types/script";
 
 function cleanLatex(latex: string): string {
   let s = latex.trim();
@@ -53,6 +55,8 @@ export const FormulaScene: React.FC<{
   const scene = resolveSceneStyle(theme, "formula");
   const choreo = useChoreography(choreography);
   const { formula, explanation, title } = data as { formula: string; explanation: string; title: string };
+  const manimClips = ((data as Record<string, unknown>).manimClips ?? []) as ManimClip[];
+  const hasManim = manimClips.length > 0;
 
   const parts = splitFormulaParts(formula || "");
   const isMultiStep = parts.length > 1;
@@ -98,34 +102,71 @@ export const FormulaScene: React.FC<{
     >
       <div style={{ position: "absolute", top: "40%", left: "30%", width: s(500), height: s(500), borderRadius: "50%", background: `radial-gradient(circle, rgba(${scene.accentRgb},${glowOpacity}) 0%, transparent 70%)`, transform: "translate(-50%,-50%)" }} />
 
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: flexDir, alignItems: "center", justifyContent: "center", padding: pad, gap: s(isPortrait ? 40 : 60) }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0, opacity: currentOpacity, transform: `scale(${currentScale})`, maxWidth: isPortrait ? "95%" : "55%" }}>
-          {title && <div style={{ color: formulaAccent, fontSize: s(24), fontWeight: 600, fontFamily: theme.fonts.title, textTransform: "uppercase" as const, letterSpacing: 5, marginBottom: s(30) }}>{title}</div>}
+      {hasManim ? (
+        <>
+          {/* 底层: Manim 语义可视化动画 */}
+          {manimClips.map((clip, i) => (
+            <ManimClipPlayer key={i} clip={{...clip, position: "center"}} durationInFrames={durationInFrames} />
+          ))}
 
-          {isMultiStep && (
-            <div style={{ display: "flex", gap: s(10), marginBottom: s(16) }}>
-              {parts.map((_, idx) => (
-                <div key={idx} style={{ width: s(8), height: s(8), borderRadius: "50%", background: (frame >= 40 || idx === 0) ? formulaAccent : `${formulaAccent}4D` }} />
-              ))}
-            </div>
+          {/* 上层: KaTeX 精确公式浮层（玻璃面板） */}
+          {formula && (
+            <FormulaOverlay
+              formula={formula}
+              position={isPortrait ? "top" : "top-right"}
+              delayFrames={10}
+              showLabel={title || undefined}
+            />
           )}
 
-          <div style={{ background: formulaBg, border: `1px solid ${formulaBorder}`, borderRadius: s(24), padding: `${s(36)}px ${s(44)}px`, maxWidth: "100%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {rendered.ok ? (
-              <span style={{ fontSize: formulaFontSize, color: theme.colors.text, display: "block", overflow: "hidden" }} dangerouslySetInnerHTML={{ __html: rendered.html }} />
-            ) : (
-              <span style={{ color: theme.colors.text, fontSize: formulaFontSize, fontFamily: "'Times New Roman', serif", fontStyle: "italic", wordBreak: "break-all" as const }}>{currentFormula}</span>
-            )}
-          </div>
-        </div>
+          {/* 底部: 解释文字（始终显示，帮助理解公式） */}
+          {hasExplanation && (
+            <div style={{
+              position: "absolute",
+              bottom: s(60),
+              left: "15%",
+              right: "15%",
+              opacity: textOpacity,
+              background: "rgba(10, 10, 30, 0.7)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              borderRadius: s(14),
+              padding: `${s(18)}px ${s(28)}px`,
+            }}>
+              <InlineLatex text={explanation} color={scene.bodyTextColor} fontSize={explainFontSize} fontFamily={theme.fonts.body} lineHeight={1.7} textAlign="center" />
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: flexDir, alignItems: "center", justifyContent: "center", padding: pad, gap: s(isPortrait ? 40 : 60) }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0, opacity: currentOpacity, transform: `scale(${currentScale})`, maxWidth: isPortrait ? "95%" : "55%" }}>
+            {title && <div style={{ color: formulaAccent, fontSize: s(24), fontWeight: 600, fontFamily: theme.fonts.title, textTransform: "uppercase" as const, letterSpacing: 5, marginBottom: s(30) }}>{title}</div>}
 
-        {hasExplanation && (
-          <div style={{ maxWidth: isPortrait ? "95%" : undefined, flex: isPortrait ? undefined : 2, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: isPortrait ? "center" : "flex-start", opacity: textOpacity, transform: isPortrait ? `translateY(${interpolate(frame, [textDelay, textDelay + 30], [30, 0], { extrapolateRight: "clamp" })}px)` : `translateX(${interpolate(frame, [textDelay, textDelay + 30], [40, 0], { extrapolateRight: "clamp" })}px)` }}>
-            <div style={{ width: s(50), height: s(4), background: `linear-gradient(90deg, ${formulaAccent}, ${theme.colors.primary})`, borderRadius: 2, marginBottom: s(28) }} />
-            <InlineLatex text={explanation} color={scene.bodyTextColor} fontSize={explainFontSize} fontFamily={theme.fonts.body} lineHeight={1.7} textAlign={isPortrait ? "center" : "left"} />
+            {isMultiStep && (
+              <div style={{ display: "flex", gap: s(10), marginBottom: s(16) }}>
+                {parts.map((_, idx) => (
+                  <div key={idx} style={{ width: s(8), height: s(8), borderRadius: "50%", background: (frame >= 40 || idx === 0) ? formulaAccent : `${formulaAccent}4D` }} />
+                ))}
+              </div>
+            )}
+
+            <div style={{ background: formulaBg, border: `1px solid ${formulaBorder}`, borderRadius: s(24), padding: `${s(36)}px ${s(44)}px`, maxWidth: "100%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {rendered.ok ? (
+                <span style={{ fontSize: formulaFontSize, color: theme.colors.text, display: "block", overflow: "hidden" }} dangerouslySetInnerHTML={{ __html: rendered.html }} />
+              ) : (
+                <span style={{ color: theme.colors.text, fontSize: formulaFontSize, fontFamily: "'Times New Roman', serif", fontStyle: "italic", wordBreak: "break-all" as const }}>{currentFormula}</span>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+
+          {hasExplanation && (
+            <div style={{ maxWidth: isPortrait ? "95%" : undefined, flex: isPortrait ? undefined : 2, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: isPortrait ? "center" : "flex-start", opacity: textOpacity, transform: isPortrait ? `translateY(${interpolate(frame, [textDelay, textDelay + 30], [30, 0], { extrapolateRight: "clamp" })}px)` : `translateX(${interpolate(frame, [textDelay, textDelay + 30], [40, 0], { extrapolateRight: "clamp" })}px)` }}>
+              <div style={{ width: s(50), height: s(4), background: `linear-gradient(90deg, ${formulaAccent}, ${theme.colors.primary})`, borderRadius: 2, marginBottom: s(28) }} />
+              <InlineLatex text={explanation} color={scene.bodyTextColor} fontSize={explainFontSize} fontFamily={theme.fonts.body} lineHeight={1.7} textAlign={isPortrait ? "center" : "left"} />
+            </div>
+          )}
+        </div>
+      )}
     </DynamicBackground>
   );
 };

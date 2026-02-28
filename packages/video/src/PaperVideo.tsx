@@ -98,7 +98,12 @@ export const PaperVideo: React.FC<{ script: VideoScript }> = ({ script }) => {
             >
               <SceneWrapper durationInFrames={scene.durationInFrames}>
                 <SceneComponent
-                  data={scene.data}
+                  data={{
+                    ...scene.data,
+                    ...(scene.manimClips && scene.manimClips.length > 0
+                      ? { manimClips: scene.manimClips }
+                      : {}),
+                  }}
                   durationInFrames={scene.durationInFrames}
                   {...(scene.choreography && scene.choreography.length > 0
                     ? { choreography: scene.choreography }

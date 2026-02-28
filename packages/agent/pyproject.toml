@@ -18,6 +18,7 @@ dependencies = [
     "pyexecjs",
     "parsel",
     "cairosvg",
+    "manim>=0.18",
 ]
 
 [project.scripts]

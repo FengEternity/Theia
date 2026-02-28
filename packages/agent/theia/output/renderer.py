@@ -115,6 +115,7 @@ def render_video(
     if workspace:
         _copy_audio_files(script, workspace, public_dir)
         _copy_figure_files(script, workspace, public_dir, parsed_dir=parsed_dir)
+        _copy_manim_clips(script, workspace, public_dir)
 
     # 序列化脚本为 JSON（驼峰命名以匹配 TypeScript）
     script_data = _to_camel_case_dict(script)
@@ -301,6 +302,29 @@ def _copy_figure_files(
             scene.data["figures"] = updated_paths
 
 
+def _copy_manim_clips(script: VideoScript, workspace: Path, public_dir: Path) -> None:
+    """将 Manim 预渲染的视频片段复制到 Remotion public 目录。"""
+    has_clips = any(s.manim_clips for s in script.scenes)
+    if not has_clips:
+        return
+
+    clips_dest = public_dir / "manim_clips"
+    clips_dest.mkdir(exist_ok=True)
+
+    for scene in script.scenes:
+        for clip in scene.manim_clips:
+            src = Path(clip.clip_path)
+            if not src.is_absolute():
+                src = workspace / clip.clip_path
+            if src.exists():
+                dest = clips_dest / src.name
+                shutil.copy2(src, dest)
+                clip.clip_path = f"manim_clips/{src.name}"
+                logger.debug("复制 Manim 片段: %s -> %s", src, dest)
+            else:
+                logger.warning("Manim 片段不存在: %s", src)
+
+
 def _to_camel_case_dict(script: VideoScript) -> dict:
     """将 VideoScript 转换为驼峰命名的 dict，匹配 TypeScript schema。"""
     return {
@@ -330,6 +354,16 @@ def _to_camel_case_dict(script: VideoScript) -> dict:
                         "transitionType": p.transition_type,
                     }
                     for p in s.choreography
+                ],
+                "manimClips": [
+                    {
+                        "clipPath": mc.clip_path,
+                        "startMs": mc.start_ms,
+                        "durationMs": mc.duration_ms,
+                        "position": mc.position,
+                        "opacity": mc.opacity,
+                    }
+                    for mc in s.manim_clips
                 ],
             }
             for s in script.scenes

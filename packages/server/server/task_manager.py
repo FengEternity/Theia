@@ -41,6 +41,7 @@ _DEFAULT_WORKSPACE = Path(__file__).resolve().parent.parent.parent.parent / "wor
 _NAME_TO_STAGE: dict[str, TaskStage] = {
     "parse": TaskStage.PARSING,
     "extract": TaskStage.EXTRACTING,
+    "quality_gate": TaskStage.EXTRACTING,
     "script": TaskStage.SCRIPTING,
     "tts": TaskStage.TTS,
     "render": TaskStage.RENDERING,
@@ -133,6 +134,32 @@ class _TaskProgressCallback:
                     stage_label=STAGE_LABELS.get(stage, ""),
                     message=info.message,
                     token_step=info.detail["agent_name"],
+                )
+                for q in live.queues:
+                    try:
+                        q.put_nowait(event)
+                    except asyncio.QueueFull:
+                        pass
+
+        # 质量门控：推送评分详情
+        if info.name == "quality_gate" and info.detail.get("quality_score") is not None:
+            live = self.mgr._live.get(self.task_id)
+            if live:
+                quality_detail = {
+                    "score": info.detail.get("quality_score"),
+                    "max": info.detail.get("quality_max"),
+                    "threshold": info.detail.get("quality_threshold"),
+                    "passed": info.detail.get("quality_passed"),
+                    "detail": info.detail.get("quality_detail"),
+                    "phase": info.detail.get("phase"),
+                }
+                event = TaskEvent(
+                    stage=TaskStage.EXTRACTING,
+                    progress=STAGE_PROGRESS.get(TaskStage.EXTRACTING, 30),
+                    stage_label=STAGE_LABELS.get(TaskStage.EXTRACTING, ""),
+                    message=info.message,
+                    token_step="quality_gate",
+                    quality_detail=quality_detail,
                 )
                 for q in live.queues:
                     try:
@@ -385,6 +412,7 @@ class TaskManager:
             speech_rate=config.speech_rate,
             narration_style=config.narration_style,
             theme=config.theme,
+            single_pass_extraction=(getattr(config, "extract_mode", "multi_pass") == "single"),
             progress=progress_cb,
         )
 
@@ -424,6 +452,7 @@ class TaskManager:
             narration_style=config.narration_style,
             theme=config.theme,
             interactive_mode=True,
+            single_pass_extraction=(getattr(config, "extract_mode", "multi_pass") == "single"),
             extract_model=default_cfg.extract_model,
             scan_model=default_cfg.scan_model,
             figure_model=default_cfg.figure_model,
@@ -899,9 +928,20 @@ class TaskManager:
         from theia.llm.config import LLMConfig
 
         llm_cfg = LLMConfig()
+
+        # 若路径不存在，尝试用前缀匹配实际文件（缓存中的哈希可能与新下载的不同）
+        resolved_path = figure_path
+        requested_name = Path(figure_path).name
+        if not (images_dir / requested_name).is_file():
+            prefix = requested_name[:12]
+            candidates = [f.name for f in images_dir.iterdir() if f.name.startswith(prefix) and f.suffix == '.jpg']
+            if candidates:
+                resolved_path = f"images/{candidates[0]}"
+                logger.info("图片哈希不匹配，使用前缀匹配: %s → %s", requested_name, candidates[0])
+
         try:
             new_fig = reanalyze_single_figure(
-                figure_path,
+                resolved_path,
                 images_dir,
                 core_idea,
                 caption=caption,
@@ -1408,6 +1448,7 @@ class TaskManager:
             speech_rate=config.speech_rate,
             narration_style=config.narration_style,
             theme=config.theme,
+            single_pass_extraction=(getattr(config, "extract_mode", "multi_pass") == "single"),
             progress=progress_cb,
         )
 
@@ -1451,6 +1492,7 @@ class TaskManager:
             narration_style=config.narration_style,
             theme=config.theme,
             interactive_mode=True,
+            single_pass_extraction=(getattr(config, "extract_mode", "multi_pass") == "single"),
             extract_model=default_cfg.extract_model,
             scan_model=default_cfg.scan_model,
             figure_model=default_cfg.figure_model,

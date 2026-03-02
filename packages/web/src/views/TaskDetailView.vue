@@ -12,17 +12,28 @@ import {
   getFigureUrl, getAudioUrl, getPendingReview, approveStep, updateArtifact,
   resumeFromStep, reanalyzeFigure, rerunFigures, updateSummary, rotateFigure,
 } from '@/api/client'
-import type { TaskResponse, TaskEvent, TaskStage, TaskLogItem, PendingReview } from '@/api/types'
+import type { TaskResponse, TaskEvent, TaskStage, TaskLogItem, PendingReview, QualityDetail } from '@/api/types'
 import ArtifactEditor from '@/components/ArtifactEditor.vue'
 import StepActions from '@/components/StepActions.vue'
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: true })
 
+function stripLatexDelimiters(latex: string): { content: string; display: boolean } {
+  const s = latex.trim()
+  if (s.startsWith('$$') && s.endsWith('$$')) return { content: s.slice(2, -2).trim(), display: true }
+  if (s.startsWith('\\[') && s.endsWith('\\]')) return { content: s.slice(2, -2).trim(), display: true }
+  if (s.startsWith('$') && s.endsWith('$')) return { content: s.slice(1, -1).trim(), display: false }
+  if (s.startsWith('\\(') && s.endsWith('\\)')) return { content: s.slice(2, -2).trim(), display: false }
+  return { content: s, display: true }
+}
+
 function renderLatex(latex: string): string {
+  if (!latex) return ''
   try {
-    return katex.renderToString(latex, { displayMode: true, throwOnError: false, output: 'html' })
+    const { content, display } = stripLatexDelimiters(latex)
+    return katex.renderToString(content, { displayMode: display, throwOnError: false, output: 'html' })
   } catch {
-    return latex
+    return `<span style="font-family:monospace;font-size:12px;color:#64748b">${latex}</span>`
   }
 }
 
@@ -38,7 +49,7 @@ const retrying = ref(false)
 let evtSource: EventSource | null = null
 
 // --- Step expand state ---
-const expandedStep = ref<TaskStage | null>(null)
+const expandedStep = ref<PipelineStepStage | null>(null)
 const stepLoading = ref(false)
 
 // Intermediate data per stage
@@ -85,6 +96,10 @@ watch(streamingText, () => {
 const pendingReview = ref<PendingReview | null>(null)
 const showEditor = ref(false)
 const reviewLoading = ref(false)
+
+// --- Quality gate ---
+const qualityPreRepair = ref<QualityDetail | null>(null)
+const qualityPostRepair = ref<QualityDetail | null>(null)
 
 function figFilename(path: string): string {
   return path.split('/').pop() || path
@@ -201,9 +216,12 @@ function closeLightbox() {
   lightboxSrc.value = ''
 }
 
-const PIPELINE_STEPS: { stage: TaskStage; label: string }[] = [
+type PipelineStepStage = TaskStage | 'quality_gate'
+
+const PIPELINE_STEPS: { stage: PipelineStepStage; label: string }[] = [
   { stage: 'parsing', label: 'PDF 解析' },
   { stage: 'extracting', label: '信息提取' },
+  { stage: 'quality_gate', label: '质量门控' },
   { stage: 'scripting', label: '脚本生成' },
   { stage: 'tts', label: '语音合成' },
   { stage: 'rendering', label: '视频渲染' },
@@ -242,22 +260,45 @@ const STAGE_PROGRESS_THRESHOLDS: Record<TaskStage, number> = {
   failed: -1,
 }
 
-function stepStatus(stepStage: TaskStage): 'wait' | 'process' | 'finish' | 'error' {
+function stepStatus(stepStage: PipelineStepStage): 'wait' | 'process' | 'finish' | 'error' {
   if (!task.value) return 'wait'
   if (task.value.stage === 'completed') return 'finish'
 
+  // 质量门控进行中（流式或 interrupt）：提取步骤应显示为已完成
+  const qualityGateActive = streamingStep.value === 'quality_gate' ||
+                            !!qualityPreRepair.value ||
+                            pendingReview.value?.step === 'quality_gate'
+
+  if (stepStage === 'quality_gate') {
+    if (task.value.stage === 'failed') {
+      if (task.value.progress >= 50) return 'finish'
+      if (task.value.progress >= 30 && (qualityPreRepair.value || streamingStep.value === 'quality_gate')) return 'error'
+      return 'wait'
+    }
+    const currentIdx = stageIndex(task.value.stage)
+    if (currentIdx > stageIndex('extracting')) return 'finish'
+    if (task.value.stage === 'extracting' && qualityGateActive) return 'process'
+    return 'wait'
+  }
+
   if (task.value.stage === 'failed') {
     const failedAt = task.value.progress
-    const stepThreshold = STAGE_PROGRESS_THRESHOLDS[stepStage] ?? 0
+    const stepThreshold = STAGE_PROGRESS_THRESHOLDS[stepStage as TaskStage] ?? 0
     const nextStep = PIPELINE_STEPS[PIPELINE_STEPS.findIndex(s => s.stage === stepStage) + 1]
-    const nextThreshold = nextStep ? (STAGE_PROGRESS_THRESHOLDS[nextStep.stage] ?? 100) : 100
+    const nextRealStage = nextStep?.stage === 'quality_gate' ? 'scripting' : (nextStep?.stage as TaskStage | undefined)
+    const nextThreshold = nextRealStage ? (STAGE_PROGRESS_THRESHOLDS[nextRealStage] ?? 100) : 100
     if (failedAt >= nextThreshold) return 'finish'
     if (failedAt >= stepThreshold) return 'error'
     return 'wait'
   }
 
+  // 质量门控激活时，信息提取步骤显示为已完成
+  if (stepStage === 'extracting' && qualityGateActive && task.value.stage === 'extracting') {
+    return 'finish'
+  }
+
   const current = stageIndex(task.value.stage)
-  const step = stageIndex(stepStage)
+  const step = stageIndex(stepStage as TaskStage)
   if (step < current) return 'finish'
   if (step === current) return 'process'
   return 'wait'
@@ -267,7 +308,10 @@ const isWaitingReview = computed(() =>
   task.value?.stage_label?.includes('等待审核') ?? false
 )
 
-function isStepClickable(stage: TaskStage): boolean {
+function isStepClickable(stage: PipelineStepStage): boolean {
+  if (stage === 'quality_gate') {
+    return !!(qualityPreRepair.value || qualityPostRepair.value || pendingReview.value?.step === 'quality_gate')
+  }
   const s = stepStatus(stage)
   if (s === 'finish' || s === 'error') return true
   if (s === 'process' && isWaitingReview.value) return true
@@ -291,12 +335,13 @@ function trackStageChange(stage: TaskStage) {
   if (stepTimestamps.value[stage] === undefined) {
     stepTimestamps.value[stage] = now
   }
-  if (prevStage && stepTimestamps.value[prevStage.stage]) {
+  // Skip quality_gate since it's a virtual step without a real timestamp
+  if (prevStage && prevStage.stage !== 'quality_gate' && stepTimestamps.value[prevStage.stage]) {
     stepDurations.value[prevStage.stage] = now - stepTimestamps.value[prevStage.stage]
   }
   if (stage === 'completed') {
     const last = PIPELINE_STEPS[PIPELINE_STEPS.length - 1]
-    if (stepTimestamps.value[last.stage]) {
+    if (last.stage !== 'quality_gate' && stepTimestamps.value[last.stage]) {
       stepDurations.value[last.stage] = now - stepTimestamps.value[last.stage]
     }
   }
@@ -345,16 +390,17 @@ const groupedBaselines = computed<GroupedBaselines[]>(() => {
 })
 
 // --- Load stage data on expand ---
-async function toggleStep(stage: TaskStage) {
+async function toggleStep(stage: PipelineStepStage) {
   if (!isStepClickable(stage)) return
   if (expandedStep.value === stage) {
     expandedStep.value = null
     return
   }
   expandedStep.value = stage
+  if (stage === 'quality_gate') return
   stepLoading.value = true
   try {
-    await loadStageData(stage)
+    await loadStageData(stage as TaskStage)
   } finally {
     stepLoading.value = false
   }
@@ -452,6 +498,19 @@ function connectSSE() {
         isStreaming.value = false
         checkPendingReview()
       }
+      if (evt.quality_detail) {
+        if (evt.quality_detail.phase === 'pre_repair') {
+          qualityPreRepair.value = evt.quality_detail
+          if (expandedStep.value === null) {
+            expandedStep.value = 'quality_gate'
+          }
+        } else if (evt.quality_detail.phase === 'post_repair') {
+          qualityPostRepair.value = evt.quality_detail
+          if (expandedStep.value === null || expandedStep.value === 'quality_gate') {
+            expandedStep.value = 'quality_gate'
+          }
+        }
+      }
       if (evt.stage === 'completed' || evt.stage === 'failed') {
         isStreaming.value = false
         pendingReview.value = null
@@ -479,14 +538,19 @@ async function checkPendingReview() {
     const review = await getPendingReview(props.id)
     pendingReview.value = review
     if (review?.step) {
-      const stage = REVIEW_STEP_TO_STAGE[review.step]
-      if (stage && expandedStep.value !== stage) {
-        expandedStep.value = stage
-        stepLoading.value = true
-        try {
-          await loadStageData(stage)
-        } finally {
-          stepLoading.value = false
+      if (review.step === 'quality_gate') {
+        // 质量门控 interrupt：自动展开质量门控面板
+        expandedStep.value = 'quality_gate'
+      } else {
+        const stage = REVIEW_STEP_TO_STAGE[review.step]
+        if (stage && expandedStep.value !== stage) {
+          expandedStep.value = stage
+          stepLoading.value = true
+          try {
+            await loadStageData(stage)
+          } finally {
+            stepLoading.value = false
+          }
         }
       }
     }
@@ -497,8 +561,21 @@ async function checkPendingReview() {
 
 const STEP_LABELS: Record<string, string> = {
   extract: '信息提取',
+  quality_gate: '质量门控',
   script: '脚本生成',
   tts: '语音合成',
+}
+
+const QUALITY_DIM_LABELS: Record<string, string> = {
+  grounding: '原文溯源',
+  entity_match: '实体匹配',
+  section_coverage: '章节覆盖',
+  diversity: '内容多样性',
+  information_density: '信息密度',
+  schema_compliance: '结构规范',
+  field_completeness: '字段完整性',
+  numeric_verifiability: '数值可验证性',
+  field_completeness_dim: '字段完整',
 }
 
 async function handleApprove() {
@@ -517,7 +594,28 @@ async function handleApprove() {
 }
 
 async function handleEditAndContinue() {
-  showEditor.value = true
+  if (pendingReview.value?.step === 'extract') {
+    if (expandedStep.value !== 'extracting') {
+      expandedStep.value = 'extracting'
+      stepLoading.value = true
+      try {
+        await loadStageData('extracting')
+      } finally {
+        stepLoading.value = false
+      }
+    }
+    await nextTick()
+    document.querySelector('.summary-content')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    ElMessage.info('请在上方编辑信息提取数据，完成后点击"保存修改"，再点击"继续"')
+  } else {
+    showEditor.value = true
+    await nextTick()
+    document.querySelector('.artifact-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
+
+function handleCancelEdit() {
+  showEditor.value = false
 }
 
 async function handleSaveEdit(data: Record<string, unknown>) {
@@ -544,6 +642,52 @@ async function handleRetryStep() {
     pendingReview.value = null
     showEditor.value = false
     ElMessage.success('正在重新执行该步骤')
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.detail || '操作失败')
+  } finally {
+    reviewLoading.value = false
+  }
+}
+
+async function handleSkipRepair() {
+  if (!pendingReview.value) return
+  reviewLoading.value = true
+  try {
+    await approveStep(props.id, { action: 'skip_repair' })
+    pendingReview.value = null
+    ElMessage.success('已跳过 AI 修复，继续执行脚本生成')
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.detail || '操作失败')
+  } finally {
+    reviewLoading.value = false
+  }
+}
+
+async function handleRepairQualityGate() {
+  if (!pendingReview.value) return
+  reviewLoading.value = true
+  try {
+    await approveStep(props.id, { action: 'repair' })
+    pendingReview.value = null
+    ElMessage.success('已发起 AI 修复')
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.detail || '操作失败')
+  } finally {
+    reviewLoading.value = false
+  }
+}
+
+async function handleApproveExtractWithLatest() {
+  if (!pendingReview.value) return
+  reviewLoading.value = true
+  try {
+    const payload = summaryData.value
+      ? { action: 'approve', data: summaryData.value }
+      : { action: 'approve' as const }
+    await approveStep(props.id, payload)
+    pendingReview.value = null
+    showEditor.value = false
+    ElMessage.success('已批准，继续执行')
   } catch (err: any) {
     ElMessage.error(err?.response?.data?.detail || '操作失败')
   } finally {
@@ -990,6 +1134,59 @@ onUnmounted(() => {
             <div v-else class="expand-empty">暂无摘要数据</div>
           </template>
 
+          <!-- ===== 质量门控阶段 ===== -->
+          <template v-else-if="expandedStep === 'quality_gate'">
+            <div class="expand-header">
+              <h3>质量门控评分</h3>
+              <span class="expand-hint">信息提取质量自动评估与修复</span>
+            </div>
+            <div v-if="qualityPreRepair || qualityPostRepair" class="quality-scores">
+              <div v-if="qualityPreRepair" class="quality-phase">
+                <div class="quality-phase-label">修复前</div>
+                <div class="quality-score-row">
+                  <span class="quality-score-num">{{ qualityPreRepair.score?.toFixed(1) }}</span>
+                  <span class="quality-score-sep">/</span>
+                  <span class="quality-score-max">{{ qualityPreRepair.max?.toFixed(1) }}</span>
+                  <el-tag size="small" :type="(qualityPreRepair.score ?? 0) >= (qualityPreRepair.threshold ?? 5.5) ? 'success' : 'warning'" style="margin-left: 8px">
+                    {{ (qualityPreRepair.score ?? 0) >= (qualityPreRepair.threshold ?? 5.5) ? '通过' : '未达标' }}
+                  </el-tag>
+                </div>
+                <div v-if="qualityPreRepair.detail?.l2" class="quality-detail-grid">
+                  <div v-for="(val, key) in (qualityPreRepair.detail.l2 as Record<string, number>)" :key="key" class="quality-dim">
+                    <span class="quality-dim-label">{{ key }}</span>
+                    <div class="quality-dim-bar-wrap">
+                      <div class="quality-dim-bar quality-dim-bar-pre" :style="{ width: Math.min(((val as number) / 1.5) * 100, 100) + '%' }" />
+                    </div>
+                    <span class="quality-dim-val">{{ (val as number)?.toFixed(2) }}</span>
+                  </div>
+                </div>
+              </div>
+              <div v-if="qualityPostRepair" class="quality-phase quality-phase-post">
+                <div class="quality-phase-label">修复后</div>
+                <div class="quality-score-row">
+                  <span class="quality-score-num" :class="{ 'quality-passed': qualityPostRepair.passed }">
+                    {{ qualityPostRepair.score?.toFixed(1) }}
+                  </span>
+                  <span class="quality-score-sep">/</span>
+                  <span class="quality-score-max">{{ qualityPostRepair.max?.toFixed(1) }}</span>
+                  <el-tag size="small" :type="qualityPostRepair.passed ? 'success' : 'warning'" style="margin-left: 8px">
+                    {{ qualityPostRepair.passed ? '通过' : '已尽力修复' }}
+                  </el-tag>
+                </div>
+                <div v-if="qualityPostRepair.detail?.l2" class="quality-detail-grid">
+                  <div v-for="(val, key) in (qualityPostRepair.detail.l2 as Record<string, number>)" :key="key" class="quality-dim">
+                    <span class="quality-dim-label">{{ key }}</span>
+                    <div class="quality-dim-bar-wrap">
+                      <div class="quality-dim-bar" :style="{ width: Math.min(((val as number) / 1.5) * 100, 100) + '%' }" />
+                    </div>
+                    <span class="quality-dim-val">{{ (val as number)?.toFixed(2) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="expand-empty">暂无质量评分数据</div>
+          </template>
+
           <!-- ===== 脚本阶段 ===== -->
           <template v-else-if="expandedStep === 'scripting'">
             <div class="expand-header">
@@ -1196,20 +1393,98 @@ onUnmounted(() => {
         </h3>
         <p class="review-message">{{ pendingReview.message }}</p>
 
-        <ArtifactEditor
-          v-if="showEditor"
-          :data="pendingReview.data"
-          :artifact-type="pendingReview.artifact_type"
-          @save="handleSaveEdit"
-        />
+        <!-- 信息提取审核提示 -->
+        <div v-if="pendingReview.step === 'extract'" class="review-extract-hint">
+          <span>可在上方信息提取面板中查看并编辑数据，使用"保存修改"后点击继续</span>
+        </div>
+
+        <!-- 质量门控评分报告 -->
+        <div v-if="pendingReview.step === 'quality_gate' && pendingReview.quality_score != null" class="review-quality-summary">
+          <!-- 总分 -->
+          <div class="quality-report-header">
+            <div class="quality-score-row">
+              <span class="quality-score-label">总分</span>
+              <span class="quality-score-num" :class="{ 'quality-passed': pendingReview.quality_passed }">
+                {{ pendingReview.quality_score?.toFixed(1) }}
+              </span>
+              <span class="quality-score-sep">/</span>
+              <span class="quality-score-max">{{ pendingReview.quality_max?.toFixed(1) }}</span>
+              <el-tag size="small" :type="pendingReview.quality_passed ? 'success' : 'warning'" style="margin-left: 8px">
+                {{ pendingReview.quality_passed ? '已达标' : '建议修复' }}
+              </el-tag>
+            </div>
+            <div v-if="pendingReview.quality_threshold" class="quality-threshold-hint">
+              阈值 {{ pendingReview.quality_threshold?.toFixed(1) }}
+            </div>
+          </div>
+
+          <!-- 弱点列表 -->
+          <div v-if="pendingReview.quality_weaknesses?.length" class="quality-weaknesses">
+            <div class="quality-section-title">检测到的问题</div>
+            <div class="quality-weakness-list">
+              <el-tag
+                v-for="w in pendingReview.quality_weaknesses"
+                :key="w"
+                type="warning"
+                size="small"
+                style="margin: 2px"
+              >
+                {{ QUALITY_DIM_LABELS[w] || w }}
+              </el-tag>
+            </div>
+          </div>
+
+          <!-- L2 维度详情 -->
+          <div v-if="pendingReview.quality_l2" class="quality-dims-section">
+            <div class="quality-section-title">语义质量 (L2)</div>
+            <div class="quality-detail-grid">
+              <div v-for="(val, key) in pendingReview.quality_l2" :key="key" class="quality-dim">
+                <span class="quality-dim-label">{{ QUALITY_DIM_LABELS[key as string] || key }}</span>
+                <div class="quality-dim-bar-wrap">
+                  <div class="quality-dim-bar quality-dim-bar-pre" :style="{ width: Math.min(((val as number) / 1.5) * 100, 100) + '%' }" />
+                </div>
+                <span class="quality-dim-val">{{ (val as number)?.toFixed(2) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- L1 维度详情 -->
+          <div v-if="pendingReview.quality_l1" class="quality-dims-section">
+            <div class="quality-section-title">结构质量 (L1)</div>
+            <div class="quality-detail-grid">
+              <div v-for="(val, key) in pendingReview.quality_l1" :key="key" class="quality-dim">
+                <span class="quality-dim-label">{{ QUALITY_DIM_LABELS[key as string] || key }}</span>
+                <div class="quality-dim-bar-wrap">
+                  <div class="quality-dim-bar quality-dim-bar-pre" :style="{ width: Math.min(((val as number) / 1.0) * 100, 100) + '%' }" />
+                </div>
+                <span class="quality-dim-val">{{ (val as number)?.toFixed(2) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 非提取步骤的 JSON 编辑器 -->
+        <div v-if="showEditor && pendingReview.step !== 'extract' && pendingReview.step !== 'quality_gate'" class="editor-with-cancel">
+          <div class="editor-cancel-bar">
+            <span class="editor-hint">在上方查看提取数据，在此处编辑 JSON 后保存</span>
+            <el-button size="small" text @click="handleCancelEdit">取消编辑</el-button>
+          </div>
+          <ArtifactEditor
+            :data="pendingReview.data"
+            :artifact-type="pendingReview.artifact_type"
+            @save="handleSaveEdit"
+          />
+        </div>
 
         <StepActions
           v-else
           :step="STEP_LABELS[pendingReview.step] || pendingReview.step"
+          :step-key="pendingReview.step"
           :loading="reviewLoading"
-          @approve="handleApprove"
+          @approve="pendingReview.step === 'extract' ? handleApproveExtractWithLatest() : (pendingReview.step === 'quality_gate' ? handleSkipRepair() : handleApprove())"
           @edit="handleEditAndContinue"
           @retry="handleRetryStep"
+          @repair="handleRepairQualityGate"
         />
       </div>
 
@@ -2606,6 +2881,77 @@ onUnmounted(() => {
 .review-panel {
   border-left: 4px solid var(--el-color-primary);
 }
+
+.editor-with-cancel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editor-cancel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.editor-hint {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.review-extract-hint {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #0369a1;
+}
+.review-quality-summary {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+.quality-report-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.quality-score-label {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+.quality-threshold-hint {
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
+}
+.quality-weaknesses {
+  margin-bottom: 12px;
+}
+.quality-dims-section {
+  margin-top: 10px;
+}
+.quality-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.quality-weakness-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
 .review-panel h3 {
   margin-bottom: 8px;
   display: flex;
@@ -2794,6 +3140,119 @@ onUnmounted(() => {
 @keyframes cursor-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
+}
+
+/* Quality Gate Panel */
+.quality-panel h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 14px;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quality-scores {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.quality-phase {
+  flex: 1;
+  min-width: 200px;
+}
+
+.quality-phase-post {
+  border-left: 1px solid #e2e8f0;
+  padding-left: 24px;
+}
+
+.quality-phase-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.quality-score-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.quality-score-num {
+  font-size: 28px;
+  font-weight: 700;
+  color: #64748b;
+  line-height: 1;
+}
+
+.quality-score-num.quality-passed {
+  color: #16a34a;
+}
+
+.quality-score-sep {
+  font-size: 20px;
+  color: #cbd5e1;
+  margin: 0 2px;
+}
+
+.quality-score-max {
+  font-size: 16px;
+  color: #94a3b8;
+}
+
+.quality-detail-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quality-dim {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.quality-dim-label {
+  width: 130px;
+  color: #64748b;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.quality-dim-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.quality-dim-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+
+.quality-dim-bar-pre {
+  background: linear-gradient(90deg, #94a3b8, #64748b);
+}
+
+.quality-dim-val {
+  width: 36px;
+  text-align: right;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Responsive */

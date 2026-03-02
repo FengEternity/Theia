@@ -28,6 +28,7 @@ const config = ref<TaskConfig>({
   speech_rate: 0,
   narration_style: 'academic',
   theme: 'academic',
+  extract_mode: 'multi_pass',
 })
 
 const THEME_NARRATION_MAP: Record<string, string> = {
@@ -364,6 +365,14 @@ function selectedPresetInfo() {
             </el-select>
           </el-form-item>
 
+
+          <el-form-item label="提取模式">
+            <el-radio-group v-model="config.extract_mode">
+              <el-radio-button value="multi_pass">多轮提取（质量高）</el-radio-button>
+              <el-radio-button value="single">单轮提取（速度快）</el-radio-button>
+            </el-radio-group>
+            <span class="form-hint">单轮提取约快 3-5 倍，但提取质量略低</span>
+          </el-form-item>
 
           <el-form-item label="逐步模式">
             <el-switch

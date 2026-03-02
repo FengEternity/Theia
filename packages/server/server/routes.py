@@ -238,7 +238,15 @@ async def get_task_figure(task_id: str, filename: str):
     if not p.is_relative_to(img_dir.resolve()):
         raise HTTPException(status_code=403, detail="禁止访问")
     if not p.exists() or not p.is_file():
-        raise HTTPException(status_code=404, detail="图片不存在")
+        # 哈希不匹配时尝试前缀匹配（缓存的图片路径可能与新下载的不同）
+        from pathlib import Path as _Path
+        stem = _Path(filename).stem[:12]
+        suffix = _Path(filename).suffix
+        candidates = [f for f in img_dir.iterdir() if f.stem.startswith(stem) and f.suffix == suffix]
+        if candidates:
+            p = candidates[0]
+        else:
+            raise HTTPException(status_code=404, detail="图片不存在")
     ext = p.suffix.lower()
     media_map = {
         ".jpg": "image/jpeg",

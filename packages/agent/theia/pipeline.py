@@ -63,6 +63,7 @@ class PipelineState(TypedDict, total=False):
     skip_tts: bool
     skip_render: bool
     use_cache: bool
+    single_pass_extraction: bool
     output_path: str | None
     narration_style: str
     theme: str
@@ -270,9 +271,11 @@ def extract_node(state: PipelineState) -> dict:
     """节点 2: 使用 LLM 提取论文信息。"""
     from .extraction.extractor import extract_paper_summary
 
-    _notify(state, 2, "extract", "started", "使用 LLM 提取论文信息 (三遍阅读法)")
+    single_pass_mode = state.get("single_pass_extraction", False)
+    extract_mode_label = "单轮提取" if single_pass_mode else "三遍阅读法"
+    _notify(state, 2, "extract", "started", f"使用 LLM 提取论文信息 ({extract_mode_label})")
     logger.info("=" * 60)
-    logger.info("步骤 2/5: 使用 LLM 提取论文信息 (三遍阅读法)")
+    logger.info("步骤 2/5: 使用 LLM 提取论文信息 (%s)", extract_mode_label)
     logger.info("=" * 60)
 
     workspace = Path(state["workspace"])
@@ -328,6 +331,7 @@ def extract_node(state: PipelineState) -> dict:
             figure_api_key=state.get("figure_api_key"),
             figure_api_base=state.get("figure_api_base"),
             on_token=_make_on_token(str(workspace), "extract"),
+            single_pass=single_pass_mode,
         )
         if cache_key:
             set_cached(workspace, cache_key, summary)
@@ -357,28 +361,128 @@ def extract_node(state: PipelineState) -> dict:
         len(summary.contributions),
     )
 
-    # --- 质量门控（作为提取流程的一部分） ---
-    from .quality.gate import run_quality_gate
-
-    content_list_json_str = state.get("content_list_json")
-    summary = run_quality_gate(
-        summary,
-        state["markdown_content"],
-        state,
-        content_list_json=content_list_json_str,
-    )
-    summary_json = summary.model_dump_json(indent=2)
-    out.write_text(summary_json, encoding="utf-8")
-
     _notify(state, 2, "extract", "completed", f"已提取: '{summary.title}'", progress_pct=100)
 
     return {"paper_summary_json": summary_json}
 
 
+def quality_gate_node(state: PipelineState) -> dict:
+    """节点 2b: 质量门控 — 检测 → (交互模式) 暂停让用户决定 → 可选修复。
+
+    非交互模式: 自动检测 + 修复。
+    交互模式: 检测后暂停展示报告，用户决定是否修复。
+    """
+    from .quality.gate import run_quality_gate, QUALITY_THRESHOLD
+    from .quality.evaluator import ExtractionEvaluator
+
+    _notify(state, 2, "quality_gate", "started", "质量门控：评估提取结果")
+    logger.info("=" * 60)
+    logger.info("步骤 2b: 质量门控")
+    logger.info("=" * 60)
+
+    summary = PaperSummary.model_validate_json(state["paper_summary_json"])
+    markdown = state["markdown_content"]
+    content_list_json_str = state.get("content_list_json")
+
+    # 阶段 1: 质量检测
+    evaluator = ExtractionEvaluator(markdown)
+    pre_result = evaluator.evaluate_fast(summary)
+    _notify(
+        state, 2, "quality_gate", "progress",
+        f"初始评分: {pre_result.fast_total:.1f}/{pre_result.max_total:.1f}",
+        progress_pct=50,
+        quality_score=round(pre_result.fast_total, 2),
+        quality_max=round(pre_result.max_total, 2),
+        quality_threshold=QUALITY_THRESHOLD,
+        quality_detail=pre_result.l2.__dict__,
+        phase="pre_repair",
+    )
+
+    # 阶段 2 (交互模式): 暂停，让用户决定是否修复
+    skip_repair = False
+    if state.get("interactive_mode"):
+        from .quality.gate import _identify_weaknesses
+        weaknesses = _identify_weaknesses(pre_result)
+        passed = pre_result.fast_total >= QUALITY_THRESHOLD
+        decision = interrupt({
+            "step": "quality_gate",
+            "message": (
+                f"质量检测完成，总分 {pre_result.fast_total:.1f}/{pre_result.max_total:.1f}"
+                f"（阈值 {QUALITY_THRESHOLD:.1f}，{'已达标' if passed else '建议修复'}）"
+            ),
+            "quality_score": round(pre_result.fast_total, 2),
+            "quality_max": round(pre_result.max_total, 2),
+            "quality_threshold": QUALITY_THRESHOLD,
+            "quality_passed": passed,
+            "quality_l1": pre_result.l1.__dict__,
+            "quality_l2": pre_result.l2.__dict__,
+            "quality_weaknesses": weaknesses,
+            "quality_detail": pre_result.l2.__dict__,
+        })
+        action = decision.get("action", "repair") if isinstance(decision, dict) else "repair"
+        if action == "skip_repair":
+            skip_repair = True
+            logger.info("用户跳过 AI 修复，直接进入脚本生成")
+            _notify(
+                state, 2, "quality_gate", "completed",
+                "用户跳过修复，继续生成脚本",
+                progress_pct=100,
+                quality_score=round(pre_result.fast_total, 2),
+                quality_max=round(pre_result.max_total, 2),
+                quality_threshold=QUALITY_THRESHOLD,
+                quality_detail=pre_result.l2.__dict__,
+                phase="pre_repair",
+            )
+            return {}
+
+    if not skip_repair:
+        # 阶段 3: AI 修复
+        _notify(state, 2, "quality_gate", "progress", "正在进行 AI 修复...", progress_pct=60)
+        summary = run_quality_gate(
+            summary,
+            markdown,
+            state,
+            content_list_json=content_list_json_str,
+            on_token_factory=_make_on_token,
+        )
+
+        # 修复后评分
+        post_result = evaluator.evaluate_fast(summary)
+        passed = post_result.fast_total >= QUALITY_THRESHOLD
+        _notify(
+            state, 2, "quality_gate", "completed",
+            f"质量门控完成: {post_result.fast_total:.1f}/{post_result.max_total:.1f} ({'通过' if passed else '已尽力修复'})",
+            progress_pct=100,
+            quality_score=round(post_result.fast_total, 2),
+            quality_max=round(post_result.max_total, 2),
+            quality_threshold=QUALITY_THRESHOLD,
+            quality_passed=passed,
+            quality_detail={
+                "l1": post_result.l1.__dict__,
+                "l2": post_result.l2.__dict__,
+            },
+            phase="post_repair",
+        )
+
+        summary_json = summary.model_dump_json(indent=2)
+
+        workspace = Path(state["workspace"])
+        stem = pdf_stem(state["pdf_path"])
+        out = workspace / "scripts" / f"{stem}_summary.json"
+        out.write_text(summary_json, encoding="utf-8")
+
+        return {"paper_summary_json": summary_json}
+
+    return {}
+
+
 def review_extract_node(state: PipelineState) -> dict:
-    """交互审核节点：提取结果审核。
+    """交互审核节点：提取结果审核（质量门控在之后自动运行）。
 
     独立于 extract_node，避免 LangGraph resume 时重跑整个提取流程。
+    支持的 action：
+      - "approve"：批准提取结果，进入质量门控
+      - "edit"：编辑提取结果后继续，进入质量门控
     """
     if not state.get("interactive_mode"):
         return {}
@@ -393,6 +497,7 @@ def review_extract_node(state: PipelineState) -> dict:
         }
     )
     action = decision.get("action", "approve") if isinstance(decision, dict) else "approve"
+
     if action == "edit" and "data" in decision:
         summary = PaperSummary(**decision["data"])
         summary_json = summary.model_dump_json(indent=2)
@@ -487,19 +592,34 @@ def script_node(state: PipelineState) -> dict:
     raw_figures = json.loads(state.get("figures_json", "[]"))
 
     if analyzed_figures:
+        used_indices: set[int] = set()
         figure_scenes = [s for s in script.scenes if s.type.value == "figure"]
-        remaining = list(analyzed_figures)
 
+        # 第一轮：figure 场景优先使用 LLM 指定的 figure_index
         for fscene in figure_scenes:
-            if not remaining:
-                break
-            best = remaining.pop(0)
-            fscene.data["figurePath"] = f"figures/{Path(best.path).name}"
-            if not fscene.data.get("caption"):
-                fscene.data["caption"] = best.caption
-            if best.description:
-                fscene.data["description"] = best.description
+            idx = fscene.data.get("figure_index")
+            if idx is not None and 0 <= int(idx) < len(analyzed_figures):
+                chosen = analyzed_figures[int(idx)]
+                used_indices.add(int(idx))
+            else:
+                # 回退：选第一个未使用的图
+                chosen = next(
+                    (f for i, f in enumerate(analyzed_figures) if i not in used_indices),
+                    None,
+                )
+                if chosen is None:
+                    continue
+                used_indices.add(analyzed_figures.index(chosen))
 
+            fscene.data["figurePath"] = f"figures/{Path(chosen.path).name}"
+            if not fscene.data.get("caption"):
+                fscene.data["caption"] = chosen.caption
+            if chosen.description and not fscene.data.get("description"):
+                fscene.data["description"] = chosen.description
+            fscene.data.pop("figure_index", None)
+
+        # 第二轮：其他非辅助场景分配剩余图片（按 figure_type 匹配）
+        remaining = [f for i, f in enumerate(analyzed_figures) if i not in used_indices]
         for scene in script.scenes:
             if scene.type.value in _SKIP_AUX_FIGURES:
                 continue
@@ -518,12 +638,18 @@ def script_node(state: PipelineState) -> dict:
         remaining_figs = list(raw_figures)
 
         for fscene in figure_scenes:
-            if not remaining_figs:
-                break
-            best = remaining_figs.pop(0)
+            idx = fscene.data.get("figure_index")
+            if idx is not None and 0 <= int(idx) < len(remaining_figs):
+                best = remaining_figs[int(idx)]
+                remaining_figs = [f for i, f in enumerate(remaining_figs) if i != int(idx)]
+            elif remaining_figs:
+                best = remaining_figs.pop(0)
+            else:
+                continue
             fscene.data["figurePath"] = f"figures/{Path(best['path']).name}"
             if not fscene.data.get("caption"):
                 fscene.data["caption"] = best.get("caption", "")
+            fscene.data.pop("figure_index", None)
 
         for scene in script.scenes:
             if scene.type.value in _SKIP_AUX_FIGURES:
@@ -773,12 +899,13 @@ def render_node(state: PipelineState) -> dict:
 
 
 def route_after_extract(state: PipelineState) -> Literal["review_extract_node", "extract_node"]:
-    """提取后的质量门控。摘要过短时触发重新提取。"""
+    """提取后路由：摘要过短时触发重新提取，否则进入审核节点。"""
     summary_json = state.get("paper_summary_json", "")
     if len(summary_json) < 100:
         logger.warning("摘要过短，正在重新提取...")
         return "extract_node"
     return "review_extract_node"
+
 
 
 def route_tts_or_skip(state: PipelineState) -> Literal["tts_node", "render_node"]:
@@ -808,6 +935,7 @@ def build_graph(*, with_checkpointer: bool = False, interactive: bool = False) -
 
     builder.add_node("parse_node", parse_node)
     builder.add_node("extract_node", extract_node)
+    builder.add_node("quality_gate_node", quality_gate_node)
     builder.add_node("review_extract_node", review_extract_node)
     builder.add_node("script_node", script_node)
     builder.add_node("review_script_node", review_script_node)
@@ -826,7 +954,8 @@ def build_graph(*, with_checkpointer: bool = False, interactive: bool = False) -
         {"review_extract_node": "review_extract_node", "extract_node": "extract_node"},
     )
 
-    builder.add_edge("review_extract_node", "script_node")
+    builder.add_edge("review_extract_node", "quality_gate_node")
+    builder.add_edge("quality_gate_node", "script_node")
     builder.add_edge("script_node", "review_script_node")
     builder.add_edge("review_script_node", "tts_node")
     builder.add_edge("tts_node", "visual_director_node")
@@ -852,6 +981,7 @@ _STEP_TO_NODE = {
 _ALL_NODE_FUNCS = {
     "parse_node": parse_node,
     "extract_node": extract_node,
+    "quality_gate_node": quality_gate_node,
     "review_extract_node": review_extract_node,
     "script_node": script_node,
     "review_script_node": review_script_node,
@@ -866,6 +996,7 @@ _STEP_CHAIN = [
     "parse_node",
     "extract_node",
     "review_extract_node",
+    "quality_gate_node",
     "script_node",
     "review_script_node",
     "tts_node",
@@ -978,6 +1109,7 @@ def run_pipeline(
     narration_style: str = "default",
     theme: str = "academic",
     speech_rate: int = 0,
+    single_pass_extraction: bool = False,
     progress: ProgressCallback | None = None,
 ) -> dict:
     """运行完整的论文到视频流水线。
@@ -1083,6 +1215,7 @@ def run_pipeline(
         narration_style=narration_style,
         theme=theme,
         speech_rate=speech_rate,
+        single_pass_extraction=single_pass_extraction,
         output_path=str(Path(output_path).resolve()) if output_path else None,
     )
 

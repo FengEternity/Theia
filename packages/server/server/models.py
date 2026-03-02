@@ -160,6 +160,7 @@ class TaskEvent(BaseModel):
     error: str | None = None
     token_delta: str | None = None
     token_step: str | None = None
+    quality_detail: dict | None = None
 
 
 class TaskLogResponse(BaseModel):

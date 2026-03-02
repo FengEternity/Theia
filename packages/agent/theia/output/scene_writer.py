@@ -182,19 +182,18 @@ def _build_user_content(blueprint: StoryBlueprint, summary: PaperSummary) -> str
         )
     parts.append("")
 
-    figure_note = ""
-    if summary.figures:
-        must_include = [f for f in summary.figures if f.importance == 5]
-        if must_include:
-            names = [f.caption or f.path for f in must_include]
-            figure_note = (
-                "\n### 必选图表（importance=5）：\n" + "\n".join(f"- {n}" for n in names)
-            )
-
     parts.append("### 论文摘要：")
     parts.append(summary.model_dump_json(indent=2))
 
-    if figure_note:
-        parts.append(figure_note)
+    if summary.figures:
+        parts.append("\n### 可用图表列表（figure 场景请从中选择 figure_index）：")
+        for idx, fig in enumerate(summary.figures):
+            label = fig.caption or f"图{idx}"
+            must = " ★必选" if fig.importance == 5 else ""
+            parts.append(
+                f"  [{idx}] type={fig.figure_type}, importance={fig.importance}{must}"
+                f" | caption: {label}"
+                + (f" | description: {fig.description[:80]}" if fig.description else "")
+            )
 
     return "\n".join(parts)

@@ -30,6 +30,15 @@ export interface TaskListResponse {
   size: number
 }
 
+export interface QualityDetail {
+  score: number
+  max: number
+  threshold: number
+  passed: boolean | null
+  detail: Record<string, unknown> | null
+  phase: 'pre_repair' | 'post_repair' | null
+}
+
 export interface TaskEvent {
   stage: TaskStage
   progress: number
@@ -39,6 +48,7 @@ export interface TaskEvent {
   error: string | null
   token_delta?: string
   token_step?: string
+  quality_detail?: QualityDetail
 }
 
 export interface TaskLogItem {
@@ -64,14 +74,23 @@ export interface TaskConfig {
   speech_rate: number
   narration_style: string
   theme: string
+  extract_mode?: string
   interactive_mode?: boolean
 }
 
 export interface PendingReview {
   step: string
-  artifact_type: string
-  data: Record<string, unknown>
+  artifact_type?: string
+  data?: Record<string, unknown>
   message: string
+  quality_score?: number
+  quality_max?: number
+  quality_threshold?: number
+  quality_passed?: boolean
+  quality_l1?: Record<string, number>
+  quality_l2?: Record<string, number>
+  quality_weaknesses?: string[]
+  quality_detail?: Record<string, number>
 }
 
 export interface ReviewDecision {

@@ -33,6 +33,18 @@ TaskManager（`task_manager.py`）管理任务的完整生命周期：
 - **取消/重试** — 随时取消运行中任务，失败任务可重试
 - **启动恢复** — 服务重启时自动将卡住的任务标记为失败
 
+### 流水线阶段
+
+| 阶段 | 标识 | 进度 |
+|------|------|------|
+| 等待开始 | `pending` | 0% |
+| 内容解析 | `parsing` | 10% |
+| 信息提取 | `extracting` | 30% |
+| 脚本生成 | `scripting` | 50% |
+| 语音合成 | `tts` | 70% |
+| 视频渲染 | `rendering` | 85% |
+| 已完成 | `completed` | 100% |
+
 ## 数据库
 
 SQLite（`workspace/theia.db`），通过 SQLAlchemy ORM 管理，支持自动迁移（`database.py`）。
@@ -123,11 +135,13 @@ server/
 - [SQLAlchemy](https://www.sqlalchemy.org/) — ORM
 - [Uvicorn](https://www.uvicorn.org/) — ASGI 服务器
 - [SSE-Starlette](https://github.com/sysid/sse-starlette) — Server-Sent Events
+- [httpx](https://www.python-httpx.org/) — HTTP 客户端（URL 下载）
 - [edge-tts](https://github.com/rany2/edge-tts) — 语音预览
 - `theia` — Agent 管道包
 
 ## 更新日志
 
+- **2026-02-28** — 新增流水线阶段说明、补充 httpx 依赖
 - **2026-02-25** — 交互式审核 API（approve/edit/resume），图片管理端点，用户设置
 - **2026-02-24** — URL 导入任务，任务取消/重试，TTS 语音预览
 - **2026-02-22** — SQLite 持久化 + 自动迁移，SSE 进度推送

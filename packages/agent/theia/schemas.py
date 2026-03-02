@@ -423,6 +423,7 @@ class PipelineInput(BaseModel):
     speech_rate: int = 0
     output_path: str | None = None
     interactive_mode: bool = False
+    single_pass_extraction: bool = False
 
     # --- 模型配置（每个步骤独立） ---
     extract_model: str = "kimi-k2-0905-preview"

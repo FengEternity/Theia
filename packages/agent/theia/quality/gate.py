@@ -27,11 +27,16 @@ def run_quality_gate(
     state: dict,
     *,
     content_list_json: str | None = None,
+    on_token_factory: Callable[[str, str], Callable[[str], None] | None] | None = None,
 ) -> PaperSummary:
     """ReAct 式质量控制。
 
     流程: evaluate → identify weaknesses → targeted repair → re-evaluate
     可作为独立函数在 extract_node 内部调用。
+
+    参数:
+        on_token_factory: 可选的回调工厂函数，签名为 (workspace, step_name) -> on_token | None。
+            用于注入流式 token 回调，避免直接导入 pipeline 模块（防循环依赖）。
 
     返回修复后的 PaperSummary（如果无需修复则返回原对象）。
     """
@@ -98,14 +103,28 @@ def run_quality_gate(
         prev_score = score
         prev_summary_json = summary.model_dump_json()
 
-        from ..pipeline import _make_on_token
+        if on_token_factory is not None:
+            on_token = on_token_factory(state.get("workspace", ""), "quality_gate")
+        else:
+            on_token = None
+        repaired = _targeted_repair(summary, weak_dims, markdown, state, on_token=on_token)
 
-        on_token = _make_on_token(state.get("workspace", ""), "quality_gate")
-        summary = _targeted_repair(summary, weak_dims, markdown, state, on_token=on_token)
-
-        if summary.model_dump_json() == prev_summary_json:
+        if repaired.model_dump_json() == prev_summary_json:
             failed_dims.update(weak_dims)
             logger.info("第 %d 轮修复未产生变化，标记 %s 为无效维度", attempt + 1, weak_dims)
+            continue
+
+        # 修复后验证：若评分下降则回滚
+        repaired_result = evaluator.evaluate_fast(repaired)
+        if repaired_result.fast_total < score - 0.05:
+            logger.warning(
+                "第 %d 轮修复后评分下降 %.1f → %.1f，回滚，标记 %s 为无效维度",
+                attempt + 1, score, repaired_result.fast_total, weak_dims,
+            )
+            failed_dims.update(weak_dims)
+            continue
+
+        summary = repaired
     else:
         result = evaluator.evaluate_fast(summary)
         logger.info(
@@ -433,7 +452,11 @@ def _improve_section_coverage(
         )
         if current_val:
             prompt += f"当前内容（信息不足，请扩展）:\n{current_val}\n\n"
-        prompt += "只返回该字段的文本内容（纯文本，不要 JSON 格式，不要字段名）。"
+        prompt += (
+            "只返回该字段的文本内容（纯文本，不要 JSON 格式，不要字段名）。\n"
+            "重要：保留论文中的英文技术术语、模型名称、数据集名称和具体数值（如 BLEU 28.4, WMT14）；"
+            "可以用中文解释，但关键英文术语不要翻译。"
+        )
 
         kwargs: dict[str, Any] = {
             "model": model,

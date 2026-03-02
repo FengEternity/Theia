@@ -141,10 +141,11 @@ def _merge_figure_results(
         """Normalize name+metric for deduplication across LLM/table sources."""
         n = re.sub(r"\s*[\[\(（].*?[\]\)）]", "", name.lower().strip())
         n = re.sub(r"\s+", " ", n).strip()
-        return (n, value)
+        m = metric.lower().strip()
+        return (n, m, value)
 
     existing_keys = {
-        _dedup_key(b.name, b.metric, b.value)
+        _dedup_key(b.name, b.metric or "", b.value)
         for b in summary.results.baselines
     }
 
@@ -184,7 +185,7 @@ def _merge_figure_results(
                     continue
                 if metric_name.startswith("col_"):
                     continue
-                key = _dedup_key(method_name, metric_name, float_val)
+                key = _dedup_key(method_name, metric_name or "", float_val)
                 if key not in existing_keys:
                     new_baselines.append(BaselineResult(
                         name=method_name,

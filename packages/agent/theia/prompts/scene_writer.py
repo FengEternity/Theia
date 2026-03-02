@@ -132,9 +132,11 @@ SCENE_WRITER_SYSTEM_PROMPT = """\
 
 **figure 场景**：
 ```json
-{{"figurePath": "", "caption": "图表标题", "description": "图表描述（中文）"}}
+{{"figurePath": "", "caption": "图表标题", "description": "图表描述（中文）", "figure_index": 0}}
 ```
-- figurePath 留空（由系统自动填充）
+- `figurePath` 留空（由系统自动填充）
+- `figure_index`：**必填**，从论文摘要的 `figures` 列表中选择最合适的图片索引（0-based）。选择与旁白内容最相关的图片，而不是仅选 importance 最高的
+- `caption` 和 `description` 使用所选图片的原始文字（可以翻译为中文）
 
 **result 场景**：
 ```json
@@ -160,65 +162,82 @@ SCENE_WRITER_SYSTEM_PROMPT = """\
 
 **concept 场景**：
 ```json
-{{"term": "核心术语", "definition": "通俗定义", "related_terms": ["关联术语1", "关联术语2"]}}
+{{"title": "Multi-Head Attention", "definition": "通俗定义（中文）", "icon": "", "keywords": ["关联术语1", "关联术语2"]}}
 ```
-- `term` 和 `definition` 必填
-- term 保留英文原文，definition 必须是中文
+- `title` 保留英文术语原文，`definition` 必须是中文
+- `icon` 留空（系统自动选择）
 
 **analogy 场景**：
 ```json
-{{"concept": "技术概念", "analogy": "日常类比", "mapping": "对应关系说明"}}
+{{
+  "concept": {{"label": "技术概念名", "description": "概念核心特征描述（中文）"}},
+  "analogy": {{"label": "日常类比名", "description": "类比描述（中文）"}},
+  "mapping": "对应关系说明（中文）"
+}}
 ```
-- `concept` 和 `analogy` 必填，均使用中文
+- `concept` 和 `analogy` 都必须是 `{{"label": "...", "description": "..."}}` 对象，不能是字符串！
+- `mapping` 是字符串
 
 **comparison 场景**：
 ```json
 {{
-  "title": "对比标题",
-  "columns": [
-    {{"name": "方法A", "values": ["值1", "值2"]}},
-    {{"name": "本文方法", "values": ["值1", "值2"]}}
+  "items": [
+    {{"name": "方法A", "features": {{"WMT14 EN-DE": "26.1", "WMT14 EN-FR": "40.4"}}}},
+    {{"name": "本文方法", "features": {{"WMT14 EN-DE": "28.4", "WMT14 EN-FR": "41.8"}}}}
   ],
-  "highlight_column": "本文方法",
-  "row_headers": ["指标1", "指标2"]
+  "featureLabels": ["WMT14 EN-DE", "WMT14 EN-FR"]
 }}
 ```
-- 从论文的 baselines 数据中提取，`columns` 每列代表一种方法
-- `highlight_column` 标记本文方法
+- `items` 数组，每项有 `name` 和 `features` 字典
+- `featureLabels` 数组，与 features 的 key 对应
+- 从论文 baselines 提取数据，不要编造
 
 **relationship 场景**：
 ```json
 {{
-  "title": "系统架构",
-  "nodes": [{{"id": "enc", "label": "编码器"}}, {{"id": "dec", "label": "解码器"}}],
-  "edges": [{{"from": "enc", "to": "dec", "label": "隐状态传递"}}]
+  "nodes": [{{"id": "enc", "label": "编码器", "icon": "", "color": "", "description": ""}}, {{"id": "dec", "label": "解码器"}}],
+  "edges": [{{"from": "enc", "to": "dec", "label": "隐状态传递", "style": "arrow"}}],
+  "layout": "radial"
 }}
 ```
 - `nodes` 和 `edges` 必填，label 使用中文
+- `layout` 从 "tree" / "radial" / "flow" 中选择
+- `style` 从 "solid" / "dashed" / "arrow" 中选择
 
 **demo 场景**：
 ```json
-{{"demo_type": "terminal|chat|editor", "title": "演示标题", "content": "演示内容描述"}}
+{{
+  "interface": "chat",
+  "steps": [
+    {{"action": "type", "content": "输入内容", "delay": 0}},
+    {{"action": "response", "content": "输出内容", "delay": 500}}
+  ]
+}}
 ```
-- `demo_type` 从 terminal/chat/editor 中选择
+- `interface` 从 "chat" / "terminal" / "code-editor" / "browser" 中选择
+- `steps` 数组，`action` 从 "type" / "response" / "highlight" / "scroll" 中选择
 
 **code_demo 场景**：
 ```json
-{{"language": "python", "code": "代码内容", "highlights": [1, 3], "title": "代码标题"}}
+{{"language": "python", "code": "代码内容", "highlights": [1, 3], "filename": "model.py"}}
 ```
 - `code` 必填，`highlights` 标记需要高亮的行号
+- `filename` 可选，显示为文件名标签
 
 **character_talk 场景**：
 ```json
-{{"character": "吉祥物名", "topic": "讲解主题", "talking_points": ["要点1", "要点2", "要点3"]}}
+{{"character": "mascot", "expression": "explaining", "text": "一段连贯的中文讲解文本", "bubbleStyle": "speech"}}
 ```
-- `talking_points` 使用中文，每条简短明了
+- `character` 固定为 "mascot" 或 "ai-figure"
+- `text` 是完整的讲解内容（中文），不要用数组
+- `bubbleStyle` 从 "speech" / "thought" 中选择
 
 **summary_card 场景**：
 ```json
-{{"title": "要点总结", "items": [{{"icon": "🔑", "text": "要点1"}}, {{"icon": "💡", "text": "要点2"}}]}}
+{{"title": "要点总结", "points": ["🔑 要点1（中文）", "💡 要点2（中文）", "⚡ 要点3（中文）"]}}
 ```
-- `items` 至少 3 条，text 使用中文
+- `points` 是字符串数组，至少 3 条，可在开头加 emoji
+- 不要用对象数组，必须是纯字符串数组
 
 ### ⚠️ 语言要求（最高优先级）：
 - **所有 narration 字段必须 100% 使用中文撰写**，绝对禁止出现英文句子
